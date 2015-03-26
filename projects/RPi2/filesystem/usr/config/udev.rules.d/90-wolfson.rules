@@ -1,0 +1,6 @@
+# init wolfson card, enable SPDIF, lineout and headset playback
+SUBSYSTEM=="sound", ACTION=="add|change", ATTR{id}=="sndrpiwsp", \
+	RUN+="/usr/bin/SPDIF_playback.sh -q", \
+	RUN+="/usr/bin/Playback_to_Lineout.sh -q", \
+	RUN+="/usr/bin/Playback_to_Headset.sh -q"
+
