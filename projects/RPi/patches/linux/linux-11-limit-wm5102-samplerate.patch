@@ -1,0 +1,37 @@
+From e1391426234db6b764403296a68dc0479c64abda Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 24 May 2015 13:58:28 +0200
+Subject: [PATCH] disable samplerates below 32kHz in wm5102
+
+This fixes issues with SPDIF, the WM8804 doesn't support rates
+below 32kHz
+---
+ sound/soc/codecs/wm5102.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/codecs/wm5102.c b/sound/soc/codecs/wm5102.c
+index ebf7deb..ddd07a2 100644
+--- a/sound/soc/codecs/wm5102.c
++++ b/sound/soc/codecs/wm5102.c
+@@ -1737,7 +1737,17 @@ static int wm5102_set_fll(struct snd_soc_codec *codec, int fll_id, int source,
+ 	}
+ }
+ 
+-#define WM5102_RATES SNDRV_PCM_RATE_8000_192000
++// disable samplerates below 32kHz, the WM8804 doesn't support them
++// #define WM5102_RATES SNDRV_PCM_RATE_8000_192000
++#define WM5102_RATES \
++	  SNDRV_PCM_RATE_32000 \
++	| SNDRV_PCM_RATE_44100 \
++	| SNDRV_PCM_RATE_48000 \
++	| SNDRV_PCM_RATE_64000 \
++	| SNDRV_PCM_RATE_88200 \
++	| SNDRV_PCM_RATE_96000 \
++	| SNDRV_PCM_RATE_176400 \
++	| SNDRV_PCM_RATE_192000
+ 
+ #define WM5102_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
+ 			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
+-- 
+2.1.4
+
