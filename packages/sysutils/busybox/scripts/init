@@ -847,9 +847,10 @@
   /bin/busybox rm -fr /tmp
 
   # tell OE settings addon to disable updates
-  if [ "$UPDATE_DISABLED" = "yes" ] ; then
+  # Hias: disable updates in settings addon
+  #if [ "$UPDATE_DISABLED" = "yes" ] ; then
     echo "" > /sysroot/dev/.update_disabled
-  fi
+  #fi
   # swap can not be used over nfs.(see scripts/mount-swap)
   if [ "$STORAGE_NETBOOT" = "yes" ] ; then
     echo "" > /sysroot/dev/.storage_netboot
