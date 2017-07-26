@@ -1,0 +1,80 @@
+#!/bin/sh
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2017-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+SYSTEM_OVERLAYS_DIR=/usr/lib/kernel-overlays
+OVERLAY_CONFIG_DIR=/storage/.cache/kernel-overlays
+KVER=$(uname -r)
+MODULES_DIR="/var/lib/modules/${KVER}"
+
+mkdir -p "${MODULES_DIR}"
+mkdir -p "${OVERLAY_CONFIG_DIR}"
+
+log() {
+  echo "kernel-overlays-setup: $@" > /dev/kmsg
+}
+
+apply_overlay() {
+  case "$1" in
+    /*)
+      overlay_dir="${1}/lib/modules/${KVER}"
+      ;;
+    *)
+      overlay_dir="${SYSTEM_OVERLAYS_DIR}/${1}/lib/modules/${KVER}"
+      ;;
+  esac
+
+  if [ ! -d "${overlay_dir}" ] ; then
+    return 1
+  fi
+
+  cp -rfs "${overlay_dir}"/* "${MODULES_DIR}"
+}
+
+# setup system base modules
+
+log "setup base modules"
+apply_overlay base
+
+# apply user-configured module overlays
+
+if [ -d "${OVERLAY_CONFIG_DIR}" ] ; then
+  log "adding overlays from ${OVERLAY_CONFIG_DIR}"
+  got_overlays="no"
+  for conf in "${OVERLAY_CONFIG_DIR}/"*.conf ; do
+    if [ -e "$conf" ] ; then
+      log "processing conf $conf"
+      overlay=$(cat "$conf")
+      if [ -n "$overlay" ] ; then
+        if apply_overlay "$overlay" ; then
+          log "added overlay $overlay"
+          got_overlays="yes"
+        else
+          log "failed to add overlay $overlay"
+        fi
+      fi
+    fi
+  done
+
+  if [ "yes" = "$got_overlays" ] ; then
+    log "running depmod"
+    /usr/sbin/depmod -a
+  fi
+fi
+
+log "done"
