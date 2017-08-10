@@ -158,6 +158,11 @@ install_binary_addon() {
     cp -L $PKG_BUILD/.install_pkg/usr/lib/$MEDIACENTER/addons/$addon_id/$addon_so $ADDON_BUILD/$addon_id/
     chmod +x $ADDON_BUILD/$addon_id/$addon_so
   fi
+
+  if [ -d $PKG_BUILD/.install_pkg/usr/lib/kernel-overlays/$addon_id ] ; then
+    mkdir -p $ADDON_BUILD/$addon_id/kernel-overlay
+    cp -PR $PKG_BUILD/.install_pkg/usr/lib/kernel-overlays/$addon_id/* $ADDON_BUILD/$addon_id/kernel-overlay
+  fi
 }
 
 tolower() {
