@@ -41,7 +41,7 @@ post_makeinstall_target() {
 }
 
 addon() {
-  install_binary_addon $PKG_NAME $PKG_ADDON_ID
+  install_binary_addon $PKG_ADDON_ID
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib/
   cp -P $PKG_BUILD/.$TARGET_NAME/wv/libssd_wv.so $ADDON_BUILD/$PKG_ADDON_ID/lib
