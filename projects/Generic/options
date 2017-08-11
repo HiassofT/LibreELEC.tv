@@ -86,3 +86,6 @@
   # Space separated list is supported,
   # e.g. ADDITIONAL_DRIVERS="DRIVER1 DRIVER2"
     ADDITIONAL_DRIVERS="$ADDITIONAL_DRIVERS bcm_sta intel_nuc_led"
+
+  # test: include crazycat driver in image
+  ADDITIONAL_DRIVERS="$ADDITIONAL_DRIVERS dvb.crazycat"

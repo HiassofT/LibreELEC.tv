@@ -163,3 +163,6 @@ fi
   if [ "$DEVICE" = "Slice" -o "$DEVICE" = "Slice3" ]; then
     ADDITIONAL_DRIVERS="$ADDITIONAL_DRIVERS slice-drivers"
   fi
+
+  # test: include crazycat driver in image
+  ADDITIONAL_DRIVERS="$ADDITIONAL_DRIVERS dvb.crazycat"
