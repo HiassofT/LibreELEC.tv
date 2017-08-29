@@ -228,7 +228,7 @@ for MOD in `find $INSTALL/usr/lib/kernel-overlays/ -type f -name *.ko`; do
 done
 
 # symlink overlayed modules to /usr/lib/modules
-ln -sf /var/lib/modules $INSTALL/usr/lib/modules
+ln -sT /var/lib/modules $INSTALL/usr/lib/modules
 
 # make target dir
 mkdir -p $TARGET_IMG
