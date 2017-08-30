@@ -23,7 +23,12 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/crazycat69/linux_media"
 PKG_URL="$DISTRO_SRC/media_build-$PKG_VERSION.tar.xz"
+
+# add dvb.crazycat.previous dependency to pull in kernel module
+# from previous release version.
+#PKG_DEPENDS_TARGET="toolchain linux dvb.crazycat.previous"
 PKG_DEPENDS_TARGET="toolchain linux"
+
 PKG_BUILD_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
@@ -64,6 +69,16 @@ make_target() {
 
   # add menuconfig to edit .config
   make VER=$KERNEL_VER SRCDIR=$(kernel_path)
+}
+
+pre_makeinstall_target() {
+  # copy in modules from previous version
+  OLD_DIR="$(get_build_dir dvb.crazycat.previous)"
+
+  if [ -d "$OLD_DIR/kernel-overlay/lib" ] ; then
+    mkdir -p "$INSTALL/$(get_kernel_overlay_dir $PKG_ADDON_ID)/"
+    cp -Pr "$OLD_DIR/kernel-overlay/lib" "$INSTALL/$(get_kernel_overlay_dir $PKG_ADDON_ID)/"
+  fi
 }
 
 makeinstall_target() {
