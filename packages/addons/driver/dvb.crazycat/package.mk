@@ -76,38 +76,6 @@ makeinstall_target() {
   find $MODULE_DIR -name \*.ko -exec $STRIP --strip-debug {} \;
 
   mkdir -p $ADDON_DIR
-  cp $PKG_BUILD/default.py $ADDON_DIR
-
-  if [ -f $PKG_DIR/icon/icon.png ] ; then
-    mkdir -p $ADDON_DIR/resources
-    cp $PKG_DIR/icon/icon.png $ADDON_DIR/resources
-  fi
-
-  if [ -f $DISTRO_DIR/$DISTRO/addons/fanart.png ]; then
-    mkdir -p $ADDON_DIR/resources
-    cp $DISTRO_DIR/$DISTRO/addons/fanart.png $ADDON_DIR/resources
-  fi
-
   cp $PKG_DIR/changelog.txt $ADDON_DIR
-
-  cp $ROOT/config/addon/${PKG_ADDON_TYPE}.xml $ADDON_DIR/addon.xml
-
-  sed -e "/@PKG_ADDON_NEWS@/ \
-         {
-           r $PKG_DIR/changelog.txt
-           d
-         }" -i $ADDON_DIR/addon.xml
-
-  $SED -e "s|@PKG_ADDON_ID@|$PKG_ADDON_ID|g" \
-     -e "s|@ADDON_NAME@|$PKG_ADDON_NAME|g" \
-     -e "s|@ADDON_VERSION@|${PKG_ADDON_VERSION}|g" \
-     -e "s|@REQUIRES@|$REQUIRES|g" \
-     -e "s|@PKG_SHORTDESC@|$PKG_SHORTDESC|g" \
-     -e "s|@OS_VERSION@|$OS_VERSION|g" \
-     -e "s|@PKG_LONGDESC@|$PKG_LONGDESC|g" \
-     -e "s|@PKG_DISCLAIMER@|$PKG_DISCLAIMER|g" \
-     -e "s|@PROVIDER_NAME@|$PROVIDER_NAME|g" \
-     -e "s|@PKG_ADDON_PROVIDES@|$PKG_ADDON_PROVIDES|g" \
-     -e "s|@PKG_ADDON_SCREENSHOT@|$PKG_ADDON_SCREENSHOT|g" \
-     -i $ADDON_DIR/addon.xml
+  install_addon_files "$ADDON_DIR"
 }
