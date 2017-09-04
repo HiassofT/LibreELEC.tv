@@ -18,7 +18,6 @@
 
 PKG_NAME="dvb.crazycat.previous"
 PKG_VERSION="9.0.0"
-
 PKG_SHA256="db19a2be3c1e57fe92a3f39b0af1c1925765d24dd1697ccb9d8be0f9fb84de13"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
