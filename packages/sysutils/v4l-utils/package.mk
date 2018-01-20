@@ -97,6 +97,8 @@ post_makeinstall_target() {
   default_multi_maps="rc6_mce xbox_360 zotac_ad10 hp_mce xbox_one cubox_i"
 
   create_multi_keymap libreelec_multi "RC6 NEC" $default_multi_maps
+  create_multi_keymap libreelec_multi_odroid "RC6 NEC" $default_multi_maps odroid
+  create_multi_keymap libreelec_multi_wetek_hub "RC6 NEC" $default_multi_maps wetek_hub
 
   # use multi-keymap instead of default one
   sed -i '/^\*\s*rc-rc6-mce\s*rc6_mce/d' $INSTALL/etc/rc_maps.cfg
@@ -108,7 +110,7 @@ post_makeinstall_target() {
 # *	rc-rc6-mce	rc6_mce
 *	rc-rc6-mce	libreelec_multi
 # additional non-upstreamed keymaps
-*	rc-odroid	odroid
-*	rc-wetek-hub	wetek_hub
+*	rc-odroid	libreelec_multi_odroid
+*	rc-wetek-hub	libreelec_multi_wetek_hub
 EOF
 }
