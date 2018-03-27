@@ -1,0 +1,422 @@
+From 7ef81f821bea65f500af78a8bad5696ad26eaba9 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Tue, 27 Mar 2018 19:35:11 +0200
+Subject: [PATCH 1/3] media: rc: set timeout to smallest value required by
+ enabled protocols
+
+backport of https://patchwork.linuxtv.org/patch/48116/
+
+The longer the IR timeout, the longer we wait until delivering each
+scancode. By reducing this timeout, we reduce the time it take for the
+last scancode to be delivered.
+
+Note that the lirc daemon disables all protocols, in case we revert back
+to the default value.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ drivers/media/rc/ir-jvc-decoder.c     |  1 +
+ drivers/media/rc/ir-mce_kbd-decoder.c |  1 +
+ drivers/media/rc/ir-nec-decoder.c     |  1 +
+ drivers/media/rc/ir-rc5-decoder.c     |  1 +
+ drivers/media/rc/ir-rc6-decoder.c     |  1 +
+ drivers/media/rc/ir-sanyo-decoder.c   |  1 +
+ drivers/media/rc/ir-sharp-decoder.c   |  1 +
+ drivers/media/rc/ir-sony-decoder.c    |  1 +
+ drivers/media/rc/ir-xmp-decoder.c     |  1 +
+ drivers/media/rc/rc-core-priv.h       |  1 +
+ drivers/media/rc/rc-ir-raw.c          | 31 ++++++++++++++++++++++++++++++-
+ drivers/media/rc/rc-main.c            | 12 ++++++------
+ 12 files changed, 46 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/media/rc/ir-jvc-decoder.c b/drivers/media/rc/ir-jvc-decoder.c
+index e2bd68c42edf..fc931fe39bb7 100644
+--- a/drivers/media/rc/ir-jvc-decoder.c
++++ b/drivers/media/rc/ir-jvc-decoder.c
+@@ -212,6 +212,7 @@ static struct ir_raw_handler jvc_handler = {
+ 	.protocols	= RC_PROTO_BIT_JVC,
+ 	.decode		= ir_jvc_decode,
+ 	.encode		= ir_jvc_encode,
++	.max_space	= JVC_TRAILER_SPACE,
+ };
+ 
+ static int __init ir_jvc_decode_init(void)
+diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
+index 7c572a643656..7afeab04dbbf 100644
+--- a/drivers/media/rc/ir-mce_kbd-decoder.c
++++ b/drivers/media/rc/ir-mce_kbd-decoder.c
+@@ -474,6 +474,7 @@ static struct ir_raw_handler mce_kbd_handler = {
+ 	.encode		= ir_mce_kbd_encode,
+ 	.raw_register	= ir_mce_kbd_register,
+ 	.raw_unregister	= ir_mce_kbd_unregister,
++	.max_space	= MCIR2_MAX_LEN,
+ };
+ 
+ static int __init ir_mce_kbd_decode_init(void)
+diff --git a/drivers/media/rc/ir-nec-decoder.c b/drivers/media/rc/ir-nec-decoder.c
+index a95d09acc22a..3e12059add84 100644
+--- a/drivers/media/rc/ir-nec-decoder.c
++++ b/drivers/media/rc/ir-nec-decoder.c
+@@ -264,6 +264,7 @@ static struct ir_raw_handler nec_handler = {
+ 							RC_PROTO_BIT_NEC32,
+ 	.decode		= ir_nec_decode,
+ 	.encode		= ir_nec_encode,
++	.max_space	= NEC_TRAILER_SPACE,
+ };
+ 
+ static int __init ir_nec_decode_init(void)
+diff --git a/drivers/media/rc/ir-rc5-decoder.c b/drivers/media/rc/ir-rc5-decoder.c
+index 1292f534de43..1eaca0528b69 100644
+--- a/drivers/media/rc/ir-rc5-decoder.c
++++ b/drivers/media/rc/ir-rc5-decoder.c
+@@ -282,6 +282,7 @@ static struct ir_raw_handler rc5_handler = {
+ 							RC_PROTO_BIT_RC5_SZ,
+ 	.decode		= ir_rc5_decode,
+ 	.encode		= ir_rc5_encode,
++	.max_space	= RC5_TRAILER,
+ };
+ 
+ static int __init ir_rc5_decode_init(void)
+diff --git a/drivers/media/rc/ir-rc6-decoder.c b/drivers/media/rc/ir-rc6-decoder.c
+index 5d0d2fe3b7a7..8c4c733a5f27 100644
+--- a/drivers/media/rc/ir-rc6-decoder.c
++++ b/drivers/media/rc/ir-rc6-decoder.c
+@@ -408,6 +408,7 @@ static struct ir_raw_handler rc6_handler = {
+ 			  RC_PROTO_BIT_RC6_MCE,
+ 	.decode		= ir_rc6_decode,
+ 	.encode		= ir_rc6_encode,
++	.max_space	= RC6_SUFFIX_SPACE,
+ };
+ 
+ static int __init ir_rc6_decode_init(void)
+diff --git a/drivers/media/rc/ir-sanyo-decoder.c b/drivers/media/rc/ir-sanyo-decoder.c
+index 758c60956850..935880d4889e 100644
+--- a/drivers/media/rc/ir-sanyo-decoder.c
++++ b/drivers/media/rc/ir-sanyo-decoder.c
+@@ -218,6 +218,7 @@ static struct ir_raw_handler sanyo_handler = {
+ 	.protocols	= RC_PROTO_BIT_SANYO,
+ 	.decode		= ir_sanyo_decode,
+ 	.encode		= ir_sanyo_encode,
++	.max_space	= SANYO_TRAILER_SPACE,
+ };
+ 
+ static int __init ir_sanyo_decode_init(void)
+diff --git a/drivers/media/rc/ir-sharp-decoder.c b/drivers/media/rc/ir-sharp-decoder.c
+index 129b558acc92..513790317656 100644
+--- a/drivers/media/rc/ir-sharp-decoder.c
++++ b/drivers/media/rc/ir-sharp-decoder.c
+@@ -226,6 +226,7 @@ static struct ir_raw_handler sharp_handler = {
+ 	.protocols	= RC_PROTO_BIT_SHARP,
+ 	.decode		= ir_sharp_decode,
+ 	.encode		= ir_sharp_encode,
++	.max_space	= SHARP_TRAILER_SPACE,
+ };
+ 
+ static int __init ir_sharp_decode_init(void)
+diff --git a/drivers/media/rc/ir-sony-decoder.c b/drivers/media/rc/ir-sony-decoder.c
+index a47ced763031..d57d15b431f6 100644
+--- a/drivers/media/rc/ir-sony-decoder.c
++++ b/drivers/media/rc/ir-sony-decoder.c
+@@ -221,6 +221,7 @@ static struct ir_raw_handler sony_handler = {
+ 							RC_PROTO_BIT_SONY20,
+ 	.decode		= ir_sony_decode,
+ 	.encode		= ir_sony_encode,
++	.max_space	= SONY_TRAILER_SPACE,
+ };
+ 
+ static int __init ir_sony_decode_init(void)
+diff --git a/drivers/media/rc/ir-xmp-decoder.c b/drivers/media/rc/ir-xmp-decoder.c
+index 6f464be1c8d7..1ac3a4cee69e 100644
+--- a/drivers/media/rc/ir-xmp-decoder.c
++++ b/drivers/media/rc/ir-xmp-decoder.c
+@@ -198,6 +198,7 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ static struct ir_raw_handler xmp_handler = {
+ 	.protocols	= RC_PROTO_BIT_XMP,
+ 	.decode		= ir_xmp_decode,
++	.max_space	= XMP_TRAILER_SPACE,
+ };
+ 
+ static int __init ir_xmp_decode_init(void)
+diff --git a/drivers/media/rc/rc-core-priv.h b/drivers/media/rc/rc-core-priv.h
+index 7da9c96cb058..5fd3b5aed9ec 100644
+--- a/drivers/media/rc/rc-core-priv.h
++++ b/drivers/media/rc/rc-core-priv.h
+@@ -29,6 +29,7 @@ struct ir_raw_handler {
+ 	int (*decode)(struct rc_dev *dev, struct ir_raw_event event);
+ 	int (*encode)(enum rc_proto protocol, u32 scancode,
+ 		      struct ir_raw_event *events, unsigned int max);
++	u32 max_space;
+ 
+ 	/* These two should only be used by the lirc decoder */
+ 	int (*raw_register)(struct rc_dev *dev);
+diff --git a/drivers/media/rc/rc-ir-raw.c b/drivers/media/rc/rc-ir-raw.c
+index 503bc425a187..47e70f1f0e3a 100644
+--- a/drivers/media/rc/rc-ir-raw.c
++++ b/drivers/media/rc/rc-ir-raw.c
+@@ -215,7 +215,36 @@ ir_raw_get_allowed_protocols(void)
+ 
+ static int change_protocol(struct rc_dev *dev, u64 *rc_proto)
+ {
+-	/* the caller will update dev->enabled_protocols */
++	struct ir_raw_handler *handler;
++	u32 timeout = 0;
++
++	if (!dev->max_timeout)
++		return 0;
++
++	mutex_lock(&ir_raw_handler_lock);
++	list_for_each_entry(handler, &ir_raw_handler_list, list) {
++		if (handler->protocols & *rc_proto) {
++			if (timeout < handler->max_space)
++				timeout = handler->max_space;
++		}
++	}
++	mutex_unlock(&ir_raw_handler_lock);
++
++	if (timeout == 0)
++		timeout = IR_DEFAULT_TIMEOUT;
++	else
++		timeout += MS_TO_NS(10);
++
++	if (timeout < dev->min_timeout)
++		timeout = dev->min_timeout;
++	else if (timeout > dev->max_timeout)
++		timeout = dev->max_timeout;
++
++	if (dev->s_timeout)
++		dev->s_timeout(dev, timeout);
++	else
++		dev->timeout = timeout;
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
+index 72f381522cb2..e7e20bcfe272 100644
+--- a/drivers/media/rc/rc-main.c
++++ b/drivers/media/rc/rc-main.c
+@@ -1161,6 +1161,9 @@ static ssize_t store_protocols(struct device *device,
+ 	if (rc < 0)
+ 		goto out;
+ 
++	if (dev->driver_type == RC_DRIVER_IR_RAW)
++		ir_raw_load_modules(&new_protocols);
++
+ 	rc = dev->change_protocol(dev, &new_protocols);
+ 	if (rc < 0) {
+ 		IR_dprintk(1, "Error setting protocols to 0x%llx\n",
+@@ -1168,9 +1171,6 @@ static ssize_t store_protocols(struct device *device,
+ 		goto out;
+ 	}
+ 
+-	if (dev->driver_type == RC_DRIVER_IR_RAW)
+-		ir_raw_load_modules(&new_protocols);
+-
+ 	if (new_protocols != old_protocols) {
+ 		*current_protocols = new_protocols;
+ 		IR_dprintk(1, "Protocols changed to 0x%llx\n",
+@@ -1638,6 +1638,9 @@ static int rc_prepare_rx_device(struct rc_dev *dev)
+ 
+ 	rc_proto = BIT_ULL(rc_map->rc_proto);
+ 
++	if (dev->driver_type == RC_DRIVER_IR_RAW)
++		ir_raw_load_modules(&rc_proto);
++
+ 	if (dev->change_protocol) {
+ 		rc = dev->change_protocol(dev, &rc_proto);
+ 		if (rc < 0)
+@@ -1645,9 +1648,6 @@ static int rc_prepare_rx_device(struct rc_dev *dev)
+ 		dev->enabled_protocols = rc_proto;
+ 	}
+ 
+-	if (dev->driver_type == RC_DRIVER_IR_RAW)
+-		ir_raw_load_modules(&rc_proto);
+-
+ 	set_bit(EV_KEY, dev->input_dev->evbit);
+ 	set_bit(EV_REP, dev->input_dev->evbit);
+ 	set_bit(EV_MSC, dev->input_dev->evbit);
+-- 
+2.11.0
+
+
+From fba42c219b2753ecb7c7bdd9deb9808a7a4706ce Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Tue, 27 Mar 2018 19:45:36 +0200
+Subject: [PATCH 2/3] media: rc: per-protocol repeat period and minimum keyup
+ timer
+
+backport of https://patchwork.linuxtv.org/patch/48118/
+
+Each IR protocol has its own repeat period. We can minimise the keyup
+timer to be the protocol period + IR timeout. This makes keys less
+"sticky" and makes IR more reactive and nicer to use.
+
+This feature was previously attempted in commit d57ea877af38 ("media: rc:
+per-protocol repeat period"), but that did not take the IR timeout into
+account, and had to be reverted.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ drivers/media/cec/cec-core.c |  2 +-
+ drivers/media/rc/rc-main.c   | 54 +++++++++++++++++++++++---------------------
+ 2 files changed, 29 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/media/cec/cec-core.c b/drivers/media/cec/cec-core.c
+index 648136e552d5..4cf35e4af7bd 100644
+--- a/drivers/media/cec/cec-core.c
++++ b/drivers/media/cec/cec-core.c
+@@ -280,7 +280,7 @@ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
+ 	adap->rc->enabled_protocols = RC_PROTO_BIT_CEC;
+ 	adap->rc->priv = adap;
+ 	adap->rc->map_name = RC_MAP_CEC;
+-	adap->rc->timeout = MS_TO_NS(100);
++	adap->rc->timeout = MS_TO_NS(550);
+ 	adap->rc_last_scancode = -1;
+ #endif
+ 	return adap;
+diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
+index e7e20bcfe272..36f99a0919c3 100644
+--- a/drivers/media/rc/rc-main.c
++++ b/drivers/media/rc/rc-main.c
+@@ -35,48 +35,48 @@ static const struct {
+ 	unsigned int repeat_period;
+ 	unsigned int scancode_bits;
+ } protocols[] = {
+-	[RC_PROTO_UNKNOWN] = { .name = "unknown", .repeat_period = 250 },
+-	[RC_PROTO_OTHER] = { .name = "other", .repeat_period = 250 },
++	[RC_PROTO_UNKNOWN] = { .name = "unknown", .repeat_period = 125 },
++	[RC_PROTO_OTHER] = { .name = "other", .repeat_period = 125 },
+ 	[RC_PROTO_RC5] = { .name = "rc-5",
+-		.scancode_bits = 0x1f7f, .repeat_period = 250 },
++		.scancode_bits = 0x1f7f, .repeat_period = 114 },
+ 	[RC_PROTO_RC5X_20] = { .name = "rc-5x-20",
+-		.scancode_bits = 0x1f7f3f, .repeat_period = 250 },
++		.scancode_bits = 0x1f7f3f, .repeat_period = 114 },
+ 	[RC_PROTO_RC5_SZ] = { .name = "rc-5-sz",
+-		.scancode_bits = 0x2fff, .repeat_period = 250 },
++		.scancode_bits = 0x2fff, .repeat_period = 114 },
+ 	[RC_PROTO_JVC] = { .name = "jvc",
+-		.scancode_bits = 0xffff, .repeat_period = 250 },
++		.scancode_bits = 0xffff, .repeat_period = 125 },
+ 	[RC_PROTO_SONY12] = { .name = "sony-12",
+-		.scancode_bits = 0x1f007f, .repeat_period = 250 },
++		.scancode_bits = 0x1f007f, .repeat_period = 100 },
+ 	[RC_PROTO_SONY15] = { .name = "sony-15",
+-		.scancode_bits = 0xff007f, .repeat_period = 250 },
++		.scancode_bits = 0xff007f, .repeat_period = 100 },
+ 	[RC_PROTO_SONY20] = { .name = "sony-20",
+-		.scancode_bits = 0x1fff7f, .repeat_period = 250 },
++		.scancode_bits = 0x1fff7f, .repeat_period = 100 },
+ 	[RC_PROTO_NEC] = { .name = "nec",
+-		.scancode_bits = 0xffff, .repeat_period = 250 },
++		.scancode_bits = 0xffff, .repeat_period = 110 },
+ 	[RC_PROTO_NECX] = { .name = "nec-x",
+-		.scancode_bits = 0xffffff, .repeat_period = 250 },
++		.scancode_bits = 0xffffff, .repeat_period = 110 },
+ 	[RC_PROTO_NEC32] = { .name = "nec-32",
+-		.scancode_bits = 0xffffffff, .repeat_period = 250 },
++		.scancode_bits = 0xffffffff, .repeat_period = 110 },
+ 	[RC_PROTO_SANYO] = { .name = "sanyo",
+-		.scancode_bits = 0x1fffff, .repeat_period = 250 },
++		.scancode_bits = 0x1fffff, .repeat_period = 125 },
+ 	[RC_PROTO_MCIR2_KBD] = { .name = "mcir2-kbd",
+-		.scancode_bits = 0xffff, .repeat_period = 250 },
++		.scancode_bits = 0xffff, .repeat_period = 100 },
+ 	[RC_PROTO_MCIR2_MSE] = { .name = "mcir2-mse",
+-		.scancode_bits = 0x1fffff, .repeat_period = 250 },
++		.scancode_bits = 0x1fffff, .repeat_period = 100 },
+ 	[RC_PROTO_RC6_0] = { .name = "rc-6-0",
+-		.scancode_bits = 0xffff, .repeat_period = 250 },
++		.scancode_bits = 0xffff, .repeat_period = 114 },
+ 	[RC_PROTO_RC6_6A_20] = { .name = "rc-6-6a-20",
+-		.scancode_bits = 0xfffff, .repeat_period = 250 },
++		.scancode_bits = 0xfffff, .repeat_period = 114 },
+ 	[RC_PROTO_RC6_6A_24] = { .name = "rc-6-6a-24",
+-		.scancode_bits = 0xffffff, .repeat_period = 250 },
++		.scancode_bits = 0xffffff, .repeat_period = 114 },
+ 	[RC_PROTO_RC6_6A_32] = { .name = "rc-6-6a-32",
+-		.scancode_bits = 0xffffffff, .repeat_period = 250 },
++		.scancode_bits = 0xffffffff, .repeat_period = 114 },
+ 	[RC_PROTO_RC6_MCE] = { .name = "rc-6-mce",
+-		.scancode_bits = 0xffff7fff, .repeat_period = 250 },
++		.scancode_bits = 0xffff7fff, .repeat_period = 114 },
+ 	[RC_PROTO_SHARP] = { .name = "sharp",
+-		.scancode_bits = 0x1fff, .repeat_period = 250 },
+-	[RC_PROTO_XMP] = { .name = "xmp", .repeat_period = 250 },
+-	[RC_PROTO_CEC] = { .name = "cec", .repeat_period = 550 },
++		.scancode_bits = 0x1fff, .repeat_period = 125 },
++	[RC_PROTO_XMP] = { .name = "xmp", .repeat_period = 125 },
++	[RC_PROTO_CEC] = { .name = "cec", .repeat_period = 0 },
+ };
+ 
+ /* Used to keep track of known keymaps */
+@@ -659,7 +659,8 @@ static void ir_timer_keyup(unsigned long cookie)
+ void rc_repeat(struct rc_dev *dev)
+ {
+ 	unsigned long flags;
+-	unsigned int timeout = protocols[dev->last_protocol].repeat_period;
++	unsigned int timeout = nsecs_to_jiffies(dev->timeout) +
++		msecs_to_jiffies(protocols[dev->last_protocol].repeat_period);
+ 
+ 	spin_lock_irqsave(&dev->keylock, flags);
+ 
+@@ -669,7 +670,7 @@ void rc_repeat(struct rc_dev *dev)
+ 	input_event(dev->input_dev, EV_MSC, MSC_SCAN, dev->last_scancode);
+ 	input_sync(dev->input_dev);
+ 
+-	dev->keyup_jiffies = jiffies + msecs_to_jiffies(timeout);
++	dev->keyup_jiffies = jiffies + timeout;
+ 	mod_timer(&dev->timer_keyup, dev->keyup_jiffies);
+ 
+ out:
+@@ -740,7 +741,7 @@ void rc_keydown(struct rc_dev *dev, enum rc_proto protocol, u32 scancode,
+ 	ir_do_keydown(dev, protocol, scancode, keycode, toggle);
+ 
+ 	if (dev->keypressed) {
+-		dev->keyup_jiffies = jiffies +
++		dev->keyup_jiffies = jiffies + nsecs_to_jiffies(dev->timeout) +
+ 			msecs_to_jiffies(protocols[protocol].repeat_period);
+ 		mod_timer(&dev->timer_keyup, dev->keyup_jiffies);
+ 	}
+@@ -1553,6 +1554,7 @@ struct rc_dev *rc_allocate_device(enum rc_driver_type type)
+ 		dev->input_dev->setkeycode = ir_setkeycode;
+ 		input_set_drvdata(dev->input_dev, dev);
+ 
++		dev->timeout = IR_DEFAULT_TIMEOUT;
+ 		setup_timer(&dev->timer_keyup, ir_timer_keyup,
+ 			    (unsigned long)dev);
+ 
+-- 
+2.11.0
+
+
+From 33dc8dae7e7268be9685aa058cea3a70cf11bbe9 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Tue, 27 Mar 2018 21:43:28 +0200
+Subject: [PATCH 3/3] media: rc: ir-sharp-decoder: fix max_space
+
+max_space must be the longest space, otherwise decoding breaks.
+
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ drivers/media/rc/ir-sharp-decoder.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/rc/ir-sharp-decoder.c b/drivers/media/rc/ir-sharp-decoder.c
+index 513790317656..96d818bd0cc9 100644
+--- a/drivers/media/rc/ir-sharp-decoder.c
++++ b/drivers/media/rc/ir-sharp-decoder.c
+@@ -226,7 +226,7 @@ static struct ir_raw_handler sharp_handler = {
+ 	.protocols	= RC_PROTO_BIT_SHARP,
+ 	.decode		= ir_sharp_decode,
+ 	.encode		= ir_sharp_encode,
+-	.max_space	= SHARP_TRAILER_SPACE,
++	.max_space	= SHARP_ECHO_SPACE,
+ };
+ 
+ static int __init ir_sharp_decode_init(void)
+-- 
+2.11.0
+
