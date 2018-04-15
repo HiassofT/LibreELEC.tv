@@ -1,7 +1,7 @@
 From 057ccfd1d18842bd2fa39c4b996a9a952c5a821d Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Tue, 27 Mar 2018 19:35:11 +0200
-Subject: [PATCH 1/6] media: rc: set timeout to smallest value required by
+Subject: [PATCH 1/8] media: rc: set timeout to smallest value required by
  enabled protocols
 
 backport of https://patchwork.linuxtv.org/patch/48516/
@@ -243,7 +243,7 @@ index 72f381522cb26..e7e20bcfe2729 100644
 From a3811d0485c52e5a02cf66ead4b99708533ee42b Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Tue, 27 Mar 2018 19:45:36 +0200
-Subject: [PATCH 2/6] media: rc: per-protocol repeat period and minimum keyup
+Subject: [PATCH 2/8] media: rc: per-protocol repeat period and minimum keyup
  timer
 
 backport of https://patchwork.linuxtv.org/patch/48520/
@@ -395,7 +395,7 @@ index e7e20bcfe2729..36f99a0919c30 100644
 From 4a6ca12b029850a01d2ec0b4b32513c118f5e5db Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:39 +0100
-Subject: [PATCH 3/6] media: rc: mce_kbd decoder: low timeout values cause
+Subject: [PATCH 3/8] media: rc: mce_kbd decoder: low timeout values cause
  double keydowns
 
 backport of https://patchwork.linuxtv.org/patch/48522/
@@ -444,7 +444,7 @@ index 7afeab04dbbfd..a243d2d1ca935 100644
 From 5a0a1c9910d5fd8da5885cb6728946cd958ea676 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:40 +0100
-Subject: [PATCH 4/6] media: rc: mce_kbd protocol encodes two scancodes
+Subject: [PATCH 4/8] media: rc: mce_kbd protocol encodes two scancodes
 
 backport of https://patchwork.linuxtv.org/patch/48518/
 
@@ -527,7 +527,7 @@ index 36f99a0919c30..34cef7aa207c9 100644
 From 4b41e56e488efa81470eac901ba0e0af597a293f Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:41 +0100
-Subject: [PATCH 5/6] media: rc: mce_kbd decoder: fix stuck keys
+Subject: [PATCH 5/8] media: rc: mce_kbd decoder: fix stuck keys
 
 backport of https://patchwork.linuxtv.org/patch/48519/
 
@@ -562,7 +562,7 @@ index 2ea48a54f2b3e..164302ec4fef0 100644
 From 5f5575313b08dd32cbb053cecabdd3798a2ba385 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:42 +0100
-Subject: [PATCH 6/6] media: rc: mceusb: allow the timeout to be configurable
+Subject: [PATCH 6/8] media: rc: mceusb: allow the timeout to be configurable
 
 backport of https://patchwork.linuxtv.org/patch/48521/
 
@@ -615,6 +615,140 @@ index bf7aaff3aa375..160754a7a3822 100644
  	if (!ir->flags.no_tx) {
  		rc->s_tx_mask = mceusb_set_tx_mask;
  		rc->s_tx_carrier = mceusb_set_tx_carrier;
+-- 
+2.11.0
+
+
+From e4df4203c574a5cbdc0f16e1188f42b1b3bf03a3 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 15 Apr 2018 17:26:21 +0200
+Subject: [PATCH 7/8] media: rc: mce_kbd decoder: remove superfluous call to
+ input_sync
+
+backport of https://patchwork.linuxtv.org/patch/48681/
+
+There is nothing to sync in this code path.
+
+Reported-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ drivers/media/rc/ir-mce_kbd-decoder.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
+index 164302ec4fef0..f057b57074c97 100644
+--- a/drivers/media/rc/ir-mce_kbd-decoder.c
++++ b/drivers/media/rc/ir-mce_kbd-decoder.c
+@@ -355,7 +355,6 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 	IR_dprintk(1, "failed at state %i (%uus %s)\n",
+ 		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+-	input_sync(data->idev);
+ 	return -EINVAL;
+ }
+ 
+-- 
+2.11.0
+
+
+From d9d7831e99369188f879a316874048e40d6b0042 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 15 Apr 2018 17:38:49 +0200
+Subject: [PATCH 8/8] media: rc: mce_kbd decoder: fix race condition
+
+backport of https://patchwork.linuxtv.org/patch/48680/
+
+The MCE keyboard sends both key down and key up events. We have a timeout
+handler mce_kbd_rx_timeout() in case the keyup event is never received;
+however, this may race with new key down events from occurring.
+
+The race is that key down scancode arrives and key down events are
+generated. The timeout handler races this and generates key up events
+straight afterwards. Since the keyboard generates scancodes every 100ms,
+most likely the keys will be repeated 100ms later, and now we have new
+key down events and the user sees duplicate key presses.
+
+Reported-by: Matthias Reichl <hias@horus.com>
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ drivers/media/rc/ir-mce_kbd-decoder.c | 23 ++++++++++++++++-------
+ drivers/media/rc/rc-core-priv.h       |  1 +
+ 2 files changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
+index f057b57074c97..67c37db76737f 100644
+--- a/drivers/media/rc/ir-mce_kbd-decoder.c
++++ b/drivers/media/rc/ir-mce_kbd-decoder.c
+@@ -120,18 +120,24 @@ static void mce_kbd_rx_timeout(unsigned long data)
+ 	struct mce_kbd_dec *mce_kbd = (struct mce_kbd_dec *)data;
+ 	int i;
+ 	unsigned char maskcode;
++	unsigned long flags;
+ 
+ 	IR_dprintk(2, "timer callback clearing all keys\n");
+ 
+-	for (i = 0; i < 7; i++) {
+-		maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
+-		input_report_key(mce_kbd->idev, maskcode, 0);
+-	}
++	spin_lock_irqsave(&mce_kbd->keylock, flags);
+ 
+-	for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
+-		input_report_key(mce_kbd->idev, kbd_keycodes[i], 0);
++	if (time_is_before_eq_jiffies(mce_kbd->rx_timeout.expires)) {
++		for (i = 0; i < 7; i++) {
++			maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
++			input_report_key(mce_kbd->idev, maskcode, 0);
++		}
+ 
+-	input_sync(mce_kbd->idev);
++		for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
++			input_report_key(mce_kbd->idev, kbd_keycodes[i], 0);
++
++		input_sync(mce_kbd->idev);
++	}
++	spin_unlock_irqrestore(&mce_kbd->keylock, flags);
+ }
+ 
+ static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
+@@ -324,6 +330,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		case MCIR2_KEYBOARD_NBITS:
+ 			scancode = data->body & 0xffffff;
+ 			IR_dprintk(1, "keyboard data 0x%08x\n", data->body);
++			spin_lock(&data->keylock);
+ 			if (scancode) {
+ 				delay = nsecs_to_jiffies(dev->timeout) +
+ 					msecs_to_jiffies(100);
+@@ -333,6 +340,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			}
+ 			/* Pass data to keyboard buffer parser */
+ 			ir_mce_kbd_process_keyboard_data(data->idev, scancode);
++			spin_unlock(&data->keylock);
+ 			break;
+ 		case MCIR2_MOUSE_NBITS:
+ 			scancode = data->body & 0x1fffff;
+@@ -397,6 +405,7 @@ static int ir_mce_kbd_register(struct rc_dev *dev)
+ 
+ 	setup_timer(&mce_kbd->rx_timeout, mce_kbd_rx_timeout,
+ 		    (unsigned long)mce_kbd);
++	spin_lock_init(&mce_kbd->keylock);
+ 
+ 	input_set_drvdata(idev, mce_kbd);
+ 
+diff --git a/drivers/media/rc/rc-core-priv.h b/drivers/media/rc/rc-core-priv.h
+index 5fd3b5aed9ece..77928ae431041 100644
+--- a/drivers/media/rc/rc-core-priv.h
++++ b/drivers/media/rc/rc-core-priv.h
+@@ -97,6 +97,7 @@ struct ir_raw_event_ctrl {
+ 	struct mce_kbd_dec {
+ 		struct input_dev *idev;
+ 		struct timer_list rx_timeout;
++		spinlock_t keylock;
+ 		char name[64];
+ 		char phys[64];
+ 		int state;
 -- 
 2.11.0
 
