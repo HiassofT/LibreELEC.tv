@@ -1,7 +1,7 @@
 From 057ccfd1d18842bd2fa39c4b996a9a952c5a821d Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Tue, 27 Mar 2018 19:35:11 +0200
-Subject: [PATCH 1/8] media: rc: set timeout to smallest value required by
+Subject: [PATCH 1/9] media: rc: set timeout to smallest value required by
  enabled protocols
 
 backport of https://patchwork.linuxtv.org/patch/48516/
@@ -243,7 +243,7 @@ index 72f381522cb26..e7e20bcfe2729 100644
 From a3811d0485c52e5a02cf66ead4b99708533ee42b Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Tue, 27 Mar 2018 19:45:36 +0200
-Subject: [PATCH 2/8] media: rc: per-protocol repeat period and minimum keyup
+Subject: [PATCH 2/9] media: rc: per-protocol repeat period and minimum keyup
  timer
 
 backport of https://patchwork.linuxtv.org/patch/48520/
@@ -395,7 +395,7 @@ index e7e20bcfe2729..36f99a0919c30 100644
 From 4a6ca12b029850a01d2ec0b4b32513c118f5e5db Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:39 +0100
-Subject: [PATCH 3/8] media: rc: mce_kbd decoder: low timeout values cause
+Subject: [PATCH 3/9] media: rc: mce_kbd decoder: low timeout values cause
  double keydowns
 
 backport of https://patchwork.linuxtv.org/patch/48522/
@@ -444,7 +444,7 @@ index 7afeab04dbbfd..a243d2d1ca935 100644
 From 5a0a1c9910d5fd8da5885cb6728946cd958ea676 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:40 +0100
-Subject: [PATCH 4/8] media: rc: mce_kbd protocol encodes two scancodes
+Subject: [PATCH 4/9] media: rc: mce_kbd protocol encodes two scancodes
 
 backport of https://patchwork.linuxtv.org/patch/48518/
 
@@ -527,7 +527,7 @@ index 36f99a0919c30..34cef7aa207c9 100644
 From 4b41e56e488efa81470eac901ba0e0af597a293f Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:41 +0100
-Subject: [PATCH 5/8] media: rc: mce_kbd decoder: fix stuck keys
+Subject: [PATCH 5/9] media: rc: mce_kbd decoder: fix stuck keys
 
 backport of https://patchwork.linuxtv.org/patch/48519/
 
@@ -559,10 +559,70 @@ index 2ea48a54f2b3e..164302ec4fef0 100644
 2.11.0
 
 
+From 5f5575313b08dd32cbb053cecabdd3798a2ba385 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Sun, 8 Apr 2018 22:19:42 +0100
+Subject: [PATCH 6/9] media: rc: mceusb: allow the timeout to be configurable
+
+backport of https://patchwork.linuxtv.org/patch/48521/
+
+mceusb devices have a default timeout of 100ms, but this can be changed.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ drivers/media/rc/mceusb.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
+index bf7aaff3aa375..160754a7a3822 100644
+--- a/drivers/media/rc/mceusb.c
++++ b/drivers/media/rc/mceusb.c
+@@ -937,6 +937,25 @@ static int mceusb_set_tx_carrier(struct rc_dev *dev, u32 carrier)
+ 	return 0;
+ }
+ 
++static int mceusb_set_timeout(struct rc_dev *dev, unsigned int timeout)
++{
++	u8 cmdbuf[4] = { MCE_CMD_PORT_IR, MCE_CMD_SETIRTIMEOUT, 0, 0 };
++	struct mceusb_dev *ir = dev->priv;
++	unsigned int units;
++
++	units = DIV_ROUND_CLOSEST(timeout, US_TO_NS(MCE_TIME_UNIT));
++
++	cmdbuf[2] = units >> 8;
++	cmdbuf[3] = units;
++
++	mce_async_out(ir, cmdbuf, sizeof(cmdbuf));
++
++	/* get receiver timeout value */
++	mce_async_out(ir, GET_RX_TIMEOUT, sizeof(GET_RX_TIMEOUT));
++
++	return 0;
++}
++
+ /*
+  * We don't do anything but print debug spew for many of the command bits
+  * we receive from the hardware, but some of them are useful information
+@@ -1268,7 +1287,10 @@ static struct rc_dev *mceusb_init_rc_dev(struct mceusb_dev *ir)
+ 	rc->dev.parent = dev;
+ 	rc->priv = ir;
+ 	rc->allowed_protocols = RC_PROTO_BIT_ALL_IR_DECODER;
++	rc->min_timeout = US_TO_NS(MCE_TIME_UNIT);
+ 	rc->timeout = MS_TO_NS(100);
++	rc->max_timeout = 10 * IR_DEFAULT_TIMEOUT;
++	rc->s_timeout = mceusb_set_timeout;
+ 	if (!ir->flags.no_tx) {
+ 		rc->s_tx_mask = mceusb_set_tx_mask;
+ 		rc->s_tx_carrier = mceusb_set_tx_carrier;
+-- 
+2.11.0
+
+
 From e4df4203c574a5cbdc0f16e1188f42b1b3bf03a3 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 15 Apr 2018 17:26:21 +0200
-Subject: [PATCH 7/8] media: rc: mce_kbd decoder: remove superfluous call to
+Subject: [PATCH 7/9] media: rc: mce_kbd decoder: remove superfluous call to
  input_sync
 
 backport of https://patchwork.linuxtv.org/patch/48681/
@@ -595,7 +655,7 @@ index 164302ec4fef0..f057b57074c97 100644
 From d9d7831e99369188f879a316874048e40d6b0042 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 15 Apr 2018 17:38:49 +0200
-Subject: [PATCH 8/8] media: rc: mce_kbd decoder: fix race condition
+Subject: [PATCH 8/9] media: rc: mce_kbd decoder: fix race condition
 
 backport of https://patchwork.linuxtv.org/patch/48680/
 
@@ -689,6 +749,48 @@ index 5fd3b5aed9ece..77928ae431041 100644
  		char name[64];
  		char phys[64];
  		int state;
+-- 
+2.11.0
+
+
+From 01a33503e6b8944e1ef028c32c877448190d7db3 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Wed, 18 Apr 2018 13:50:52 +0200
+Subject: [PATCH 9/9] media: rc: mceusb: IR of length 0 means IR timeout, not
+ reset
+
+backport of https://patchwork.linuxtv.org/patch/48782/
+
+The last usb packet with IR data will end with 0x80 (MCE_IRDATA_TRAILER).
+If we reset the decoder state at this point, IR decoding can fail.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ drivers/media/rc/mceusb.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
+index 160754a7a3822..dc7ebed00b3ac 100644
+--- a/drivers/media/rc/mceusb.c
++++ b/drivers/media/rc/mceusb.c
+@@ -1056,8 +1056,14 @@ static void mceusb_process_ir_data(struct mceusb_dev *ir, int buf_len)
+ 					     i, ir->rem + 1, false);
+ 			if (ir->rem)
+ 				ir->parser_state = PARSE_IRDATA;
+-			else
+-				ir_raw_event_reset(ir->rc);
++			else {
++				init_ir_raw_event(&rawir);
++				rawir.timeout = 1;
++				rawir.duration = ir->rc->timeout;
++				if (ir_raw_event_store_with_filter(ir->rc,
++								   &rawir))
++					event = true;
++			}
+ 			break;
+ 		}
+ 
 -- 
 2.11.0
 
