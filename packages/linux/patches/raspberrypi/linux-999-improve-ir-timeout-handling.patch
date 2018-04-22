@@ -1,7 +1,1071 @@
-From 057ccfd1d18842bd2fa39c4b996a9a952c5a821d Mon Sep 17 00:00:00 2001
+From db82002ea94e3d37d674f49fdb82a25a70a5895b Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 22 Apr 2018 14:34:34 +0200
+Subject: [PATCH 01/11] media: rc: replace IR_dprintk() with dev_dbg in IR
+ decoders
+
+backport of 50078a903830796a8a47f26edc4cc10b9061711f
+
+Use dev_dbg() rather than custom debug function.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ drivers/media/rc/ir-jvc-decoder.c     | 14 ++++----
+ drivers/media/rc/ir-mce_kbd-decoder.c | 62 ++++++++++++++++++-----------------
+ drivers/media/rc/ir-nec-decoder.c     | 20 +++++------
+ drivers/media/rc/ir-rc5-decoder.c     | 12 +++----
+ drivers/media/rc/ir-rc6-decoder.c     | 26 +++++++--------
+ drivers/media/rc/ir-sanyo-decoder.c   | 18 +++++-----
+ drivers/media/rc/ir-sharp-decoder.c   | 17 +++++-----
+ drivers/media/rc/ir-sony-decoder.c    | 14 ++++----
+ drivers/media/rc/ir-xmp-decoder.c     | 29 ++++++++--------
+ 9 files changed, 107 insertions(+), 105 deletions(-)
+
+diff --git a/drivers/media/rc/ir-jvc-decoder.c b/drivers/media/rc/ir-jvc-decoder.c
+index e2bd68c42edfa..da6c8e8d3c5cf 100644
+--- a/drivers/media/rc/ir-jvc-decoder.c
++++ b/drivers/media/rc/ir-jvc-decoder.c
+@@ -56,8 +56,8 @@ static int ir_jvc_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 	if (!geq_margin(ev.duration, JVC_UNIT, JVC_UNIT / 2))
+ 		goto out;
+ 
+-	IR_dprintk(2, "JVC decode started at state %d (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "JVC decode started at state %d (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 
+ again:
+ 	switch (data->state) {
+@@ -136,15 +136,15 @@ static int ir_jvc_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			u32 scancode;
+ 			scancode = (bitrev8((data->bits >> 8) & 0xff) << 8) |
+ 				   (bitrev8((data->bits >> 0) & 0xff) << 0);
+-			IR_dprintk(1, "JVC scancode 0x%04x\n", scancode);
++			dev_dbg(&dev->dev, "JVC scancode 0x%04x\n", scancode);
+ 			rc_keydown(dev, RC_PROTO_JVC, scancode, data->toggle);
+ 			data->first = false;
+ 			data->old_bits = data->bits;
+ 		} else if (data->bits == data->old_bits) {
+-			IR_dprintk(1, "JVC repeat\n");
++			dev_dbg(&dev->dev, "JVC repeat\n");
+ 			rc_repeat(dev);
+ 		} else {
+-			IR_dprintk(1, "JVC invalid repeat msg\n");
++			dev_dbg(&dev->dev, "JVC invalid repeat msg\n");
+ 			break;
+ 		}
+ 
+@@ -164,8 +164,8 @@ static int ir_jvc_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 	}
+ 
+ out:
+-	IR_dprintk(1, "JVC decode failed at state %d (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "JVC decode failed at state %d (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+ 	return -EINVAL;
+ }
+diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
+index 7c572a6436563..1538a0fe328d1 100644
+--- a/drivers/media/rc/ir-mce_kbd-decoder.c
++++ b/drivers/media/rc/ir-mce_kbd-decoder.c
+@@ -117,19 +117,19 @@ static unsigned char kbd_keycodes[256] = {
+ 
+ static void mce_kbd_rx_timeout(unsigned long data)
+ {
+-	struct mce_kbd_dec *mce_kbd = (struct mce_kbd_dec *)data;
+-	int i;
++	struct ir_raw_event_ctrl *raw = (struct ir_raw_event_ctrl *)data;
+ 	unsigned char maskcode;
++	int i;
+ 
+-	IR_dprintk(2, "timer callback clearing all keys\n");
++	dev_dbg(&raw->dev->dev, "timer callback clearing all keys\n");
+ 
+ 	for (i = 0; i < 7; i++) {
+ 		maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
+-		input_report_key(mce_kbd->idev, maskcode, 0);
++		input_report_key(raw->mce_kbd.idev, maskcode, 0);
+ 	}
+ 
+ 	for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
+-		input_report_key(mce_kbd->idev, kbd_keycodes[i], 0);
++		input_report_key(raw->mce_kbd.idev, kbd_keycodes[i], 0);
+ }
+ 
+ static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
+@@ -144,16 +144,16 @@ static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
+ 	}
+ }
+ 
+-static void ir_mce_kbd_process_keyboard_data(struct input_dev *idev,
+-					     u32 scancode)
++static void ir_mce_kbd_process_keyboard_data(struct rc_dev *dev, u32 scancode)
+ {
++	struct mce_kbd_dec *data = &dev->raw->mce_kbd;
+ 	u8 keydata   = (scancode >> 8) & 0xff;
+ 	u8 shiftmask = scancode & 0xff;
+ 	unsigned char keycode, maskcode;
+ 	int i, keystate;
+ 
+-	IR_dprintk(1, "keyboard: keydata = 0x%02x, shiftmask = 0x%02x\n",
+-		   keydata, shiftmask);
++	dev_dbg(&dev->dev, "keyboard: keydata = 0x%02x, shiftmask = 0x%02x\n",
++		keydata, shiftmask);
+ 
+ 	for (i = 0; i < 7; i++) {
+ 		maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
+@@ -161,20 +161,21 @@ static void ir_mce_kbd_process_keyboard_data(struct input_dev *idev,
+ 			keystate = 1;
+ 		else
+ 			keystate = 0;
+-		input_report_key(idev, maskcode, keystate);
++		input_report_key(data->idev, maskcode, keystate);
+ 	}
+ 
+ 	if (keydata) {
+ 		keycode = kbd_keycodes[keydata];
+-		input_report_key(idev, keycode, 1);
++		input_report_key(data->idev, keycode, 1);
+ 	} else {
+ 		for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
+-			input_report_key(idev, kbd_keycodes[i], 0);
++			input_report_key(data->idev, kbd_keycodes[i], 0);
+ 	}
+ }
+ 
+-static void ir_mce_kbd_process_mouse_data(struct input_dev *idev, u32 scancode)
++static void ir_mce_kbd_process_mouse_data(struct rc_dev *dev, u32 scancode)
+ {
++	struct mce_kbd_dec *data = &dev->raw->mce_kbd;
+ 	/* raw mouse coordinates */
+ 	u8 xdata = (scancode >> 7) & 0x7f;
+ 	u8 ydata = (scancode >> 14) & 0x7f;
+@@ -193,14 +194,14 @@ static void ir_mce_kbd_process_mouse_data(struct input_dev *idev, u32 scancode)
+ 	else
+ 		y = ydata;
+ 
+-	IR_dprintk(1, "mouse: x = %d, y = %d, btns = %s%s\n",
+-		   x, y, left ? "L" : "", right ? "R" : "");
++	dev_dbg(&dev->dev, "mouse: x = %d, y = %d, btns = %s%s\n",
++		x, y, left ? "L" : "", right ? "R" : "");
+ 
+-	input_report_rel(idev, REL_X, x);
+-	input_report_rel(idev, REL_Y, y);
++	input_report_rel(data->idev, REL_X, x);
++	input_report_rel(data->idev, REL_Y, y);
+ 
+-	input_report_key(idev, BTN_LEFT, left);
+-	input_report_key(idev, BTN_RIGHT, right);
++	input_report_key(data->idev, BTN_LEFT, left);
++	input_report_key(data->idev, BTN_RIGHT, right);
+ }
+ 
+ /**
+@@ -226,8 +227,8 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		goto out;
+ 
+ again:
+-	IR_dprintk(2, "started at state %i (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "started at state %i (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 
+ 	if (!geq_margin(ev.duration, MCIR2_UNIT, MCIR2_UNIT / 2))
+ 		return 0;
+@@ -279,7 +280,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			data->wanted_bits = MCIR2_MOUSE_NBITS;
+ 			break;
+ 		default:
+-			IR_dprintk(1, "not keyboard or mouse data\n");
++			dev_dbg(&dev->dev, "not keyboard or mouse data\n");
+ 			goto out;
+ 		}
+ 
+@@ -318,23 +319,24 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		switch (data->wanted_bits) {
+ 		case MCIR2_KEYBOARD_NBITS:
+ 			scancode = data->body & 0xffff;
+-			IR_dprintk(1, "keyboard data 0x%08x\n", data->body);
++			dev_dbg(&dev->dev, "keyboard data 0x%08x\n",
++				data->body);
+ 			if (dev->timeout)
+ 				delay = usecs_to_jiffies(dev->timeout / 1000);
+ 			else
+ 				delay = msecs_to_jiffies(100);
+ 			mod_timer(&data->rx_timeout, jiffies + delay);
+ 			/* Pass data to keyboard buffer parser */
+-			ir_mce_kbd_process_keyboard_data(data->idev, scancode);
++			ir_mce_kbd_process_keyboard_data(dev, scancode);
+ 			break;
+ 		case MCIR2_MOUSE_NBITS:
+ 			scancode = data->body & 0x1fffff;
+-			IR_dprintk(1, "mouse data 0x%06x\n", scancode);
++			dev_dbg(&dev->dev, "mouse data 0x%06x\n", scancode);
+ 			/* Pass data to mouse buffer parser */
+-			ir_mce_kbd_process_mouse_data(data->idev, scancode);
++			ir_mce_kbd_process_mouse_data(dev, scancode);
+ 			break;
+ 		default:
+-			IR_dprintk(1, "not keyboard or mouse data\n");
++			dev_dbg(&dev->dev, "not keyboard or mouse data\n");
+ 			goto out;
+ 		}
+ 
+@@ -345,8 +347,8 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 	}
+ 
+ out:
+-	IR_dprintk(1, "failed at state %i (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "failed at state %i (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+ 	input_sync(data->idev);
+ 	return -EINVAL;
+@@ -390,7 +392,7 @@ static int ir_mce_kbd_register(struct rc_dev *dev)
+ 	set_bit(MSC_SCAN, idev->mscbit);
+ 
+ 	setup_timer(&mce_kbd->rx_timeout, mce_kbd_rx_timeout,
+-		    (unsigned long)mce_kbd);
++		    (unsigned long)dev->raw);
+ 
+ 	input_set_drvdata(idev, mce_kbd);
+ 
+diff --git a/drivers/media/rc/ir-nec-decoder.c b/drivers/media/rc/ir-nec-decoder.c
+index a95d09acc22a5..0078f83bc9ef9 100644
+--- a/drivers/media/rc/ir-nec-decoder.c
++++ b/drivers/media/rc/ir-nec-decoder.c
+@@ -58,8 +58,8 @@ static int ir_nec_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		return 0;
+ 	}
+ 
+-	IR_dprintk(2, "NEC decode started at state %d (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "NEC decode started at state %d (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 
+ 	switch (data->state) {
+ 
+@@ -108,13 +108,11 @@ static int ir_nec_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			break;
+ 
+ 		if (data->necx_repeat && data->count == NECX_REPEAT_BITS &&
+-			geq_margin(ev.duration,
+-			NEC_TRAILER_SPACE, NEC_UNIT / 2)) {
+-				IR_dprintk(1, "Repeat last key\n");
+-				rc_repeat(dev);
+-				data->state = STATE_INACTIVE;
+-				return 0;
+-
++		    geq_margin(ev.duration, NEC_TRAILER_SPACE, NEC_UNIT / 2)) {
++			dev_dbg(&dev->dev, "Repeat last key\n");
++			rc_repeat(dev);
++			data->state = STATE_INACTIVE;
++			return 0;
+ 		} else if (data->count > NECX_REPEAT_BITS)
+ 			data->necx_repeat = false;
+ 
+@@ -173,8 +171,8 @@ static int ir_nec_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		return 0;
+ 	}
+ 
+-	IR_dprintk(1, "NEC decode failed at count %d state %d (%uus %s)\n",
+-		   data->count, data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "NEC decode failed at count %d state %d (%uus %s)\n",
++		data->count, data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+ 	return -EINVAL;
+ }
+diff --git a/drivers/media/rc/ir-rc5-decoder.c b/drivers/media/rc/ir-rc5-decoder.c
+index 1292f534de434..babb88de1d975 100644
+--- a/drivers/media/rc/ir-rc5-decoder.c
++++ b/drivers/media/rc/ir-rc5-decoder.c
+@@ -63,8 +63,8 @@ static int ir_rc5_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		goto out;
+ 
+ again:
+-	IR_dprintk(2, "RC5(x/sz) decode started at state %i (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "RC5(x/sz) decode started at state %i (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 
+ 	if (!geq_margin(ev.duration, RC5_UNIT, RC5_UNIT / 2))
+ 		return 0;
+@@ -166,8 +166,8 @@ static int ir_rc5_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		} else
+ 			break;
+ 
+-		IR_dprintk(1, "RC5(x/sz) scancode 0x%06x (p: %u, t: %u)\n",
+-			   scancode, protocol, toggle);
++		dev_dbg(&dev->dev, "RC5(x/sz) scancode 0x%06x (p: %u, t: %u)\n",
++			scancode, protocol, toggle);
+ 
+ 		rc_keydown(dev, protocol, scancode, toggle);
+ 		data->state = STATE_INACTIVE;
+@@ -175,8 +175,8 @@ static int ir_rc5_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 	}
+ 
+ out:
+-	IR_dprintk(1, "RC5(x/sz) decode failed at state %i count %d (%uus %s)\n",
+-		   data->state, data->count, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "RC5(x/sz) decode failed at state %i count %d (%uus %s)\n",
++		data->state, data->count, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+ 	return -EINVAL;
+ }
+diff --git a/drivers/media/rc/ir-rc6-decoder.c b/drivers/media/rc/ir-rc6-decoder.c
+index 5d0d2fe3b7a7f..a625fdc0d2cab 100644
+--- a/drivers/media/rc/ir-rc6-decoder.c
++++ b/drivers/media/rc/ir-rc6-decoder.c
+@@ -100,8 +100,8 @@ static int ir_rc6_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		goto out;
+ 
+ again:
+-	IR_dprintk(2, "RC6 decode started at state %i (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "RC6 decode started at state %i (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 
+ 	if (!geq_margin(ev.duration, RC6_UNIT, RC6_UNIT / 2))
+ 		return 0;
+@@ -170,7 +170,7 @@ static int ir_rc6_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			break;
+ 
+ 		if (!(data->header & RC6_STARTBIT_MASK)) {
+-			IR_dprintk(1, "RC6 invalid start bit\n");
++			dev_dbg(&dev->dev, "RC6 invalid start bit\n");
+ 			break;
+ 		}
+ 
+@@ -187,7 +187,7 @@ static int ir_rc6_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			data->wanted_bits = RC6_6A_NBITS;
+ 			break;
+ 		default:
+-			IR_dprintk(1, "RC6 unknown mode\n");
++			dev_dbg(&dev->dev, "RC6 unknown mode\n");
+ 			goto out;
+ 		}
+ 		goto again;
+@@ -230,13 +230,13 @@ static int ir_rc6_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			scancode = data->body;
+ 			toggle = data->toggle;
+ 			protocol = RC_PROTO_RC6_0;
+-			IR_dprintk(1, "RC6(0) scancode 0x%04x (toggle: %u)\n",
+-				   scancode, toggle);
++			dev_dbg(&dev->dev, "RC6(0) scancode 0x%04x (toggle: %u)\n",
++				scancode, toggle);
+ 			break;
+ 
+ 		case RC6_MODE_6A:
+ 			if (data->count > CHAR_BIT * sizeof data->body) {
+-				IR_dprintk(1, "RC6 too many (%u) data bits\n",
++				dev_dbg(&dev->dev, "RC6 too many (%u) data bits\n",
+ 					data->count);
+ 				goto out;
+ 			}
+@@ -262,15 +262,15 @@ static int ir_rc6_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 				}
+ 				break;
+ 			default:
+-				IR_dprintk(1, "RC6(6A) unsupported length\n");
++				dev_dbg(&dev->dev, "RC6(6A) unsupported length\n");
+ 				goto out;
+ 			}
+ 
+-			IR_dprintk(1, "RC6(6A) proto 0x%04x, scancode 0x%08x (toggle: %u)\n",
+-				   protocol, scancode, toggle);
++			dev_dbg(&dev->dev, "RC6(6A) proto 0x%04x, scancode 0x%08x (toggle: %u)\n",
++				protocol, scancode, toggle);
+ 			break;
+ 		default:
+-			IR_dprintk(1, "RC6 unknown mode\n");
++			dev_dbg(&dev->dev, "RC6 unknown mode\n");
+ 			goto out;
+ 		}
+ 
+@@ -280,8 +280,8 @@ static int ir_rc6_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 	}
+ 
+ out:
+-	IR_dprintk(1, "RC6 decode failed at state %i (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "RC6 decode failed at state %i (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+ 	return -EINVAL;
+ }
+diff --git a/drivers/media/rc/ir-sanyo-decoder.c b/drivers/media/rc/ir-sanyo-decoder.c
+index 758c60956850f..88c6eee7cd0ad 100644
+--- a/drivers/media/rc/ir-sanyo-decoder.c
++++ b/drivers/media/rc/ir-sanyo-decoder.c
+@@ -61,14 +61,14 @@ static int ir_sanyo_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 
+ 	if (!is_timing_event(ev)) {
+ 		if (ev.reset) {
+-			IR_dprintk(1, "SANYO event reset received. reset to state 0\n");
++			dev_dbg(&dev->dev, "SANYO event reset received. reset to state 0\n");
+ 			data->state = STATE_INACTIVE;
+ 		}
+ 		return 0;
+ 	}
+ 
+-	IR_dprintk(2, "SANYO decode started at state %d (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "SANYO decode started at state %d (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 
+ 	switch (data->state) {
+ 
+@@ -111,7 +111,7 @@ static int ir_sanyo_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 
+ 		if (!data->count && geq_margin(ev.duration, SANYO_REPEAT_SPACE, SANYO_UNIT / 2)) {
+ 			rc_repeat(dev);
+-			IR_dprintk(1, "SANYO repeat last key\n");
++			dev_dbg(&dev->dev, "SANYO repeat last key\n");
+ 			data->state = STATE_INACTIVE;
+ 			return 0;
+ 		}
+@@ -153,21 +153,21 @@ static int ir_sanyo_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		not_command = bitrev8((data->bits >>  0) & 0xff);
+ 
+ 		if ((command ^ not_command) != 0xff) {
+-			IR_dprintk(1, "SANYO checksum error: received 0x%08Lx\n",
+-				   data->bits);
++			dev_dbg(&dev->dev, "SANYO checksum error: received 0x%08llx\n",
++				data->bits);
+ 			data->state = STATE_INACTIVE;
+ 			return 0;
+ 		}
+ 
+ 		scancode = address << 8 | command;
+-		IR_dprintk(1, "SANYO scancode: 0x%06x\n", scancode);
++		dev_dbg(&dev->dev, "SANYO scancode: 0x%06x\n", scancode);
+ 		rc_keydown(dev, RC_PROTO_SANYO, scancode, 0);
+ 		data->state = STATE_INACTIVE;
+ 		return 0;
+ 	}
+ 
+-	IR_dprintk(1, "SANYO decode failed at count %d state %d (%uus %s)\n",
+-		   data->count, data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "SANYO decode failed at count %d state %d (%uus %s)\n",
++		data->count, data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+ 	return -EINVAL;
+ }
+diff --git a/drivers/media/rc/ir-sharp-decoder.c b/drivers/media/rc/ir-sharp-decoder.c
+index 129b558acc921..822ee6fc15ce9 100644
+--- a/drivers/media/rc/ir-sharp-decoder.c
++++ b/drivers/media/rc/ir-sharp-decoder.c
+@@ -54,8 +54,8 @@ static int ir_sharp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		return 0;
+ 	}
+ 
+-	IR_dprintk(2, "Sharp decode started at state %d (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "Sharp decode started at state %d (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 
+ 	switch (data->state) {
+ 
+@@ -149,9 +149,9 @@ static int ir_sharp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		msg = (data->bits >> 15) & 0x7fff;
+ 		echo = data->bits & 0x7fff;
+ 		if ((msg ^ echo) != 0x3ff) {
+-			IR_dprintk(1,
+-				   "Sharp checksum error: received 0x%04x, 0x%04x\n",
+-				   msg, echo);
++			dev_dbg(&dev->dev,
++				"Sharp checksum error: received 0x%04x, 0x%04x\n",
++				msg, echo);
+ 			break;
+ 		}
+ 
+@@ -159,16 +159,15 @@ static int ir_sharp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		command = bitrev8((msg >> 2) & 0xff);
+ 
+ 		scancode = address << 8 | command;
+-		IR_dprintk(1, "Sharp scancode 0x%04x\n", scancode);
++		dev_dbg(&dev->dev, "Sharp scancode 0x%04x\n", scancode);
+ 
+ 		rc_keydown(dev, RC_PROTO_SHARP, scancode, 0);
+ 		data->state = STATE_INACTIVE;
+ 		return 0;
+ 	}
+ 
+-	IR_dprintk(1, "Sharp decode failed at count %d state %d (%uus %s)\n",
+-		   data->count, data->state, TO_US(ev.duration),
+-		   TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "Sharp decode failed at count %d state %d (%uus %s)\n",
++		data->count, data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+ 	return -EINVAL;
+ }
+diff --git a/drivers/media/rc/ir-sony-decoder.c b/drivers/media/rc/ir-sony-decoder.c
+index a47ced763031d..75407721b9738 100644
+--- a/drivers/media/rc/ir-sony-decoder.c
++++ b/drivers/media/rc/ir-sony-decoder.c
+@@ -55,8 +55,8 @@ static int ir_sony_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 	if (!geq_margin(ev.duration, SONY_UNIT, SONY_UNIT / 2))
+ 		goto out;
+ 
+-	IR_dprintk(2, "Sony decode started at state %d (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "Sony decode started at state %d (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 
+ 	switch (data->state) {
+ 
+@@ -148,19 +148,21 @@ static int ir_sony_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			protocol = RC_PROTO_SONY20;
+ 			break;
+ 		default:
+-			IR_dprintk(1, "Sony invalid bitcount %u\n", data->count);
++			dev_dbg(&dev->dev, "Sony invalid bitcount %u\n",
++				data->count);
+ 			goto out;
+ 		}
+ 
+ 		scancode = device << 16 | subdevice << 8 | function;
+-		IR_dprintk(1, "Sony(%u) scancode 0x%05x\n", data->count, scancode);
++		dev_dbg(&dev->dev, "Sony(%u) scancode 0x%05x\n", data->count,
++			scancode);
+ 		rc_keydown(dev, protocol, scancode, 0);
+ 		goto finish_state_machine;
+ 	}
+ 
+ out:
+-	IR_dprintk(1, "Sony decode failed at state %d (%uus %s)\n",
+-		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "Sony decode failed at state %d (%uus %s)\n",
++		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+ 	return -EINVAL;
+ 
+diff --git a/drivers/media/rc/ir-xmp-decoder.c b/drivers/media/rc/ir-xmp-decoder.c
+index 6f464be1c8d7a..f48cfb5588eb6 100644
+--- a/drivers/media/rc/ir-xmp-decoder.c
++++ b/drivers/media/rc/ir-xmp-decoder.c
+@@ -49,8 +49,8 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		return 0;
+ 	}
+ 
+-	IR_dprintk(2, "XMP decode started at state %d %d (%uus %s)\n",
+-		   data->state, data->count, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "XMP decode started at state %d %d (%uus %s)\n",
++		data->state, data->count, TO_US(ev.duration), TO_STR(ev.pulse));
+ 
+ 	switch (data->state) {
+ 
+@@ -85,7 +85,7 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			u32 scancode;
+ 
+ 			if (data->count != 16) {
+-				IR_dprintk(2, "received TRAILER period at index %d: %u\n",
++				dev_dbg(&dev->dev, "received TRAILER period at index %d: %u\n",
+ 					data->count, ev.duration);
+ 				data->state = STATE_INACTIVE;
+ 				return -EINVAL;
+@@ -99,7 +99,8 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			 */
+ 			divider = (n[3] - XMP_NIBBLE_PREFIX) / 15 - 2000;
+ 			if (divider < 50) {
+-				IR_dprintk(2, "divider to small %d.\n", divider);
++				dev_dbg(&dev->dev, "divider to small %d.\n",
++					divider);
+ 				data->state = STATE_INACTIVE;
+ 				return -EINVAL;
+ 			}
+@@ -113,7 +114,7 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 				n[12] + n[13] + n[14] + n[15]) % 16;
+ 
+ 			if (sum1 != 15 || sum2 != 15) {
+-				IR_dprintk(2, "checksum errors sum1=0x%X sum2=0x%X\n",
++				dev_dbg(&dev->dev, "checksum errors sum1=0x%X sum2=0x%X\n",
+ 					sum1, sum2);
+ 				data->state = STATE_INACTIVE;
+ 				return -EINVAL;
+@@ -127,24 +128,24 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			obc1 = n[12] << 4 | n[13];
+ 			obc2 = n[14] << 4 | n[15];
+ 			if (subaddr != subaddr2) {
+-				IR_dprintk(2, "subaddress nibbles mismatch 0x%02X != 0x%02X\n",
++				dev_dbg(&dev->dev, "subaddress nibbles mismatch 0x%02X != 0x%02X\n",
+ 					subaddr, subaddr2);
+ 				data->state = STATE_INACTIVE;
+ 				return -EINVAL;
+ 			}
+ 			if (oem != 0x44)
+-				IR_dprintk(1, "Warning: OEM nibbles 0x%02X. Expected 0x44\n",
++				dev_dbg(&dev->dev, "Warning: OEM nibbles 0x%02X. Expected 0x44\n",
+ 					oem);
+ 
+ 			scancode = addr << 24 | subaddr << 16 |
+ 				   obc1 << 8 | obc2;
+-			IR_dprintk(1, "XMP scancode 0x%06x\n", scancode);
++			dev_dbg(&dev->dev, "XMP scancode 0x%06x\n", scancode);
+ 
+ 			if (toggle == 0) {
+ 				rc_keydown(dev, RC_PROTO_XMP, scancode, 0);
+ 			} else {
+ 				rc_repeat(dev);
+-				IR_dprintk(1, "Repeat last key\n");
++				dev_dbg(&dev->dev, "Repeat last key\n");
+ 			}
+ 			data->state = STATE_INACTIVE;
+ 
+@@ -153,7 +154,7 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		} else if (geq_margin(ev.duration, XMP_HALFFRAME_SPACE, XMP_NIBBLE_PREFIX)) {
+ 			/* Expect 8 or 16 nibble pulses. 16 in case of 'final' frame */
+ 			if (data->count == 16) {
+-				IR_dprintk(2, "received half frame pulse at index %d. Probably a final frame key-up event: %u\n",
++				dev_dbg(&dev->dev, "received half frame pulse at index %d. Probably a final frame key-up event: %u\n",
+ 					data->count, ev.duration);
+ 				/*
+ 				 * TODO: for now go back to half frame position
+@@ -164,7 +165,7 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			}
+ 
+ 			else if (data->count != 8)
+-				IR_dprintk(2, "received half frame pulse at index %d: %u\n",
++				dev_dbg(&dev->dev, "received half frame pulse at index %d: %u\n",
+ 					data->count, ev.duration);
+ 			data->state = STATE_LEADER_PULSE;
+ 
+@@ -173,7 +174,7 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		} else if (geq_margin(ev.duration, XMP_NIBBLE_PREFIX, XMP_UNIT)) {
+ 			/* store nibble raw data, decode after trailer */
+ 			if (data->count == 16) {
+-				IR_dprintk(2, "to many pulses (%d) ignoring: %u\n",
++				dev_dbg(&dev->dev, "to many pulses (%d) ignoring: %u\n",
+ 					data->count, ev.duration);
+ 				data->state = STATE_INACTIVE;
+ 				return -EINVAL;
+@@ -189,8 +190,8 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		break;
+ 	}
+ 
+-	IR_dprintk(1, "XMP decode failed at count %d state %d (%uus %s)\n",
+-		   data->count, data->state, TO_US(ev.duration), TO_STR(ev.pulse));
++	dev_dbg(&dev->dev, "XMP decode failed at count %d state %d (%uus %s)\n",
++		data->count, data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+ 	data->state = STATE_INACTIVE;
+ 	return -EINVAL;
+ }
+-- 
+2.11.0
+
+
+From 2941a7cc1d7d1a0c550d467405ec2fe0b50744d9 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 22 Apr 2018 14:44:43 +0200
+Subject: [PATCH 02/11] media: rc: remove IR_dprintk() from rc-core
+
+backport of 1f17f684d9ea3aafccbb5d727b19c5ffafb07e75
+
+Use dev_dbg() rather than custom debug function.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ drivers/media/rc/ir-lirc-codec.c | 10 ++---
+ drivers/media/rc/rc-ir-raw.c     |  6 +--
+ drivers/media/rc/rc-main.c       | 93 ++++++++++++++++++++--------------------
+ include/media/rc-core.h          |  7 ---
+ 4 files changed, 54 insertions(+), 62 deletions(-)
+
+diff --git a/drivers/media/rc/ir-lirc-codec.c b/drivers/media/rc/ir-lirc-codec.c
+index 4c8f456238bca..1c43f3c09975b 100644
+--- a/drivers/media/rc/ir-lirc-codec.c
++++ b/drivers/media/rc/ir-lirc-codec.c
+@@ -46,12 +46,12 @@ static int ir_lirc_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 		 * then we assume that a long time has passed, so we send a
+ 		 * space with the maximum time value. */
+ 		sample = LIRC_SPACE(LIRC_VALUE_MASK);
+-		IR_dprintk(2, "delivering reset sync space to lirc_dev\n");
++		dev_dbg(&dev->dev, "delivering reset sync space to lirc_dev\n");
+ 
+ 	/* Carrier reports */
+ 	} else if (ev.carrier_report) {
+ 		sample = LIRC_FREQUENCY(ev.carrier);
+-		IR_dprintk(2, "carrier report (freq: %d)\n", sample);
++		dev_dbg(&dev->dev, "carrier report (freq: %d)\n", sample);
+ 
+ 	/* Packet end */
+ 	} else if (ev.timeout) {
+@@ -67,7 +67,7 @@ static int ir_lirc_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 			return 0;
+ 
+ 		sample = LIRC_TIMEOUT(ev.duration / 1000);
+-		IR_dprintk(2, "timeout report (duration: %d)\n", sample);
++		dev_dbg(&dev->dev, "timeout report (duration: %d)\n", sample);
+ 
+ 	/* Normal sample */
+ 	} else {
+@@ -91,8 +91,8 @@ static int ir_lirc_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 
+ 		sample = ev.pulse ? LIRC_PULSE(ev.duration / 1000) :
+ 					LIRC_SPACE(ev.duration / 1000);
+-		IR_dprintk(2, "delivering %uus %s to lirc_dev\n",
+-			   TO_US(ev.duration), TO_STR(ev.pulse));
++		dev_dbg(&dev->dev, "delivering %uus %s to lirc_dev\n",
++			TO_US(ev.duration), TO_STR(ev.pulse));
+ 	}
+ 
+ 	lirc_buffer_write(dev->raw->lirc.drv->rbuf,
+diff --git a/drivers/media/rc/rc-ir-raw.c b/drivers/media/rc/rc-ir-raw.c
+index 503bc425a187c..9030b286d3652 100644
+--- a/drivers/media/rc/rc-ir-raw.c
++++ b/drivers/media/rc/rc-ir-raw.c
+@@ -73,8 +73,8 @@ int ir_raw_event_store(struct rc_dev *dev, struct ir_raw_event *ev)
+ 	if (!dev->raw)
+ 		return -EINVAL;
+ 
+-	IR_dprintk(2, "sample: (%05dus %s)\n",
+-		   TO_US(ev->duration), TO_STR(ev->pulse));
++	dev_dbg(&dev->dev, "sample: (%05dus %s)\n",
++		TO_US(ev->duration), TO_STR(ev->pulse));
+ 
+ 	if (!kfifo_put(&dev->raw->kfifo, *ev)) {
+ 		dev_err(&dev->dev, "IR event FIFO is full!\n");
+@@ -176,7 +176,7 @@ void ir_raw_event_set_idle(struct rc_dev *dev, bool idle)
+ 	if (!dev->raw)
+ 		return;
+ 
+-	IR_dprintk(2, "%s idle mode\n", idle ? "enter" : "leave");
++	dev_dbg(&dev->dev, "%s idle mode\n", idle ? "enter" : "leave");
+ 
+ 	if (idle) {
+ 		dev->raw->this_ev.timeout = true;
+diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
+index 72f381522cb26..7bd40e6607866 100644
+--- a/drivers/media/rc/rc-main.c
++++ b/drivers/media/rc/rc-main.c
+@@ -165,6 +165,7 @@ static struct rc_map_list empty_map = {
+ 
+ /**
+  * ir_create_table() - initializes a scancode table
++ * @dev:	the rc_dev device
+  * @rc_map:	the rc_map to initialize
+  * @name:	name to assign to the table
+  * @rc_proto:	ir type to assign to the new table
+@@ -174,7 +175,7 @@ static struct rc_map_list empty_map = {
+  * This routine will initialize the rc_map and will allocate
+  * memory to hold at least the specified number of elements.
+  */
+-static int ir_create_table(struct rc_map *rc_map,
++static int ir_create_table(struct rc_dev *dev, struct rc_map *rc_map,
+ 			   const char *name, u64 rc_proto, size_t size)
+ {
+ 	rc_map->name = kstrdup(name, GFP_KERNEL);
+@@ -190,8 +191,8 @@ static int ir_create_table(struct rc_map *rc_map,
+ 		return -ENOMEM;
+ 	}
+ 
+-	IR_dprintk(1, "Allocated space for %u keycode entries (%u bytes)\n",
+-		   rc_map->size, rc_map->alloc);
++	dev_dbg(&dev->dev, "Allocated space for %u keycode entries (%u bytes)\n",
++		rc_map->size, rc_map->alloc);
+ 	return 0;
+ }
+ 
+@@ -213,6 +214,7 @@ static void ir_free_table(struct rc_map *rc_map)
+ 
+ /**
+  * ir_resize_table() - resizes a scancode table if necessary
++ * @dev:	the rc_dev device
+  * @rc_map:	the rc_map to resize
+  * @gfp_flags:	gfp flags to use when allocating memory
+  * @return:	zero on success or a negative error code
+@@ -220,7 +222,8 @@ static void ir_free_table(struct rc_map *rc_map)
+  * This routine will shrink the rc_map if it has lots of
+  * unused entries and grow it if it is full.
+  */
+-static int ir_resize_table(struct rc_map *rc_map, gfp_t gfp_flags)
++static int ir_resize_table(struct rc_dev *dev, struct rc_map *rc_map,
++			   gfp_t gfp_flags)
+ {
+ 	unsigned int oldalloc = rc_map->alloc;
+ 	unsigned int newalloc = oldalloc;
+@@ -233,23 +236,21 @@ static int ir_resize_table(struct rc_map *rc_map, gfp_t gfp_flags)
+ 			return -ENOMEM;
+ 
+ 		newalloc *= 2;
+-		IR_dprintk(1, "Growing table to %u bytes\n", newalloc);
++		dev_dbg(&dev->dev, "Growing table to %u bytes\n", newalloc);
+ 	}
+ 
+ 	if ((rc_map->len * 3 < rc_map->size) && (oldalloc > IR_TAB_MIN_SIZE)) {
+ 		/* Less than 1/3 of entries in use -> shrink keytable */
+ 		newalloc /= 2;
+-		IR_dprintk(1, "Shrinking table to %u bytes\n", newalloc);
++		dev_dbg(&dev->dev, "Shrinking table to %u bytes\n", newalloc);
+ 	}
+ 
+ 	if (newalloc == oldalloc)
+ 		return 0;
+ 
+ 	newscan = kmalloc(newalloc, gfp_flags);
+-	if (!newscan) {
+-		IR_dprintk(1, "Failed to kmalloc %u bytes\n", newalloc);
++	if (!newscan)
+ 		return -ENOMEM;
+-	}
+ 
+ 	memcpy(newscan, rc_map->scan, rc_map->len * sizeof(struct rc_map_table));
+ 	rc_map->scan = newscan;
+@@ -280,16 +281,16 @@ static unsigned int ir_update_mapping(struct rc_dev *dev,
+ 
+ 	/* Did the user wish to remove the mapping? */
+ 	if (new_keycode == KEY_RESERVED || new_keycode == KEY_UNKNOWN) {
+-		IR_dprintk(1, "#%d: Deleting scan 0x%04x\n",
+-			   index, rc_map->scan[index].scancode);
++		dev_dbg(&dev->dev, "#%d: Deleting scan 0x%04x\n",
++			index, rc_map->scan[index].scancode);
+ 		rc_map->len--;
+ 		memmove(&rc_map->scan[index], &rc_map->scan[index+ 1],
+ 			(rc_map->len - index) * sizeof(struct rc_map_table));
+ 	} else {
+-		IR_dprintk(1, "#%d: %s scan 0x%04x with key 0x%04x\n",
+-			   index,
+-			   old_keycode == KEY_RESERVED ? "New" : "Replacing",
+-			   rc_map->scan[index].scancode, new_keycode);
++		dev_dbg(&dev->dev, "#%d: %s scan 0x%04x with key 0x%04x\n",
++			index,
++			old_keycode == KEY_RESERVED ? "New" : "Replacing",
++			rc_map->scan[index].scancode, new_keycode);
+ 		rc_map->scan[index].keycode = new_keycode;
+ 		__set_bit(new_keycode, dev->input_dev->keybit);
+ 	}
+@@ -306,7 +307,7 @@ static unsigned int ir_update_mapping(struct rc_dev *dev,
+ 		}
+ 
+ 		/* Possibly shrink the keytable, failure is not a problem */
+-		ir_resize_table(rc_map, GFP_ATOMIC);
++		ir_resize_table(dev, rc_map, GFP_ATOMIC);
+ 	}
+ 
+ 	return old_keycode;
+@@ -356,7 +357,7 @@ static unsigned int ir_establish_scancode(struct rc_dev *dev,
+ 
+ 	/* No previous mapping found, we might need to grow the table */
+ 	if (rc_map->size == rc_map->len) {
+-		if (!resize || ir_resize_table(rc_map, GFP_ATOMIC))
++		if (!resize || ir_resize_table(dev, rc_map, GFP_ATOMIC))
+ 			return -1U;
+ 	}
+ 
+@@ -434,12 +435,12 @@ static int ir_setkeytable(struct rc_dev *dev,
+ 	unsigned int i, index;
+ 	int rc;
+ 
+-	rc = ir_create_table(rc_map, from->name,
+-			     from->rc_proto, from->size);
++	rc = ir_create_table(dev, rc_map, from->name, from->rc_proto,
++			     from->size);
+ 	if (rc)
+ 		return rc;
+ 
+-	IR_dprintk(1, "Allocated space for %u keycode entries (%u bytes)\n",
++	dev_dbg(&dev->dev, "Allocated space for %u keycode entries (%u bytes)\n",
+ 		   rc_map->size, rc_map->alloc);
+ 
+ 	for (i = 0; i < from->size; i++) {
+@@ -575,8 +576,8 @@ u32 rc_g_keycode_from_table(struct rc_dev *dev, u32 scancode)
+ 	spin_unlock_irqrestore(&rc_map->lock, flags);
+ 
+ 	if (keycode != KEY_RESERVED)
+-		IR_dprintk(1, "%s: scancode 0x%04x keycode 0x%02x\n",
+-			   dev->device_name, scancode, keycode);
++		dev_dbg(&dev->dev, "%s: scancode 0x%04x keycode 0x%02x\n",
++			dev->device_name, scancode, keycode);
+ 
+ 	return keycode;
+ }
+@@ -595,7 +596,7 @@ static void ir_do_keyup(struct rc_dev *dev, bool sync)
+ 	if (!dev->keypressed)
+ 		return;
+ 
+-	IR_dprintk(1, "keyup key 0x%04x\n", dev->last_keycode);
++	dev_dbg(&dev->dev, "keyup key 0x%04x\n", dev->last_keycode);
+ 	input_report_key(dev->input_dev, dev->last_keycode, 0);
+ 	led_trigger_event(led_feedback, LED_OFF);
+ 	if (sync)
+@@ -709,8 +710,8 @@ static void ir_do_keydown(struct rc_dev *dev, enum rc_proto protocol,
+ 		dev->last_toggle = toggle;
+ 		dev->last_keycode = keycode;
+ 
+-		IR_dprintk(1, "%s: key down event, key 0x%04x, protocol 0x%04x, scancode 0x%08x\n",
+-			   dev->device_name, keycode, protocol, scancode);
++		dev_dbg(&dev->dev, "%s: key down event, key 0x%04x, protocol 0x%04x, scancode 0x%08x\n",
++			dev->device_name, keycode, protocol, scancode);
+ 		input_report_key(dev->input_dev, keycode, 1);
+ 
+ 		led_trigger_event(led_feedback, LED_FULL);
+@@ -985,8 +986,8 @@ static ssize_t show_protocols(struct device *device,
+ 
+ 	mutex_unlock(&dev->lock);
+ 
+-	IR_dprintk(1, "%s: allowed - 0x%llx, enabled - 0x%llx\n",
+-		   __func__, (long long)allowed, (long long)enabled);
++	dev_dbg(&dev->dev, "%s: allowed - 0x%llx, enabled - 0x%llx\n",
++		__func__, (long long)allowed, (long long)enabled);
+ 
+ 	for (i = 0; i < ARRAY_SIZE(proto_names); i++) {
+ 		if (allowed & enabled & proto_names[i].type)
+@@ -1010,6 +1011,7 @@ static ssize_t show_protocols(struct device *device,
+ 
+ /**
+  * parse_protocol_change() - parses a protocol change request
++ * @dev:	rc_dev device
+  * @protocols:	pointer to the bitmask of current protocols
+  * @buf:	pointer to the buffer with a list of changes
+  *
+@@ -1019,7 +1021,8 @@ static ssize_t show_protocols(struct device *device,
+  * Writing "none" will disable all protocols.
+  * Returns the number of changes performed or a negative error code.
+  */
+-static int parse_protocol_change(u64 *protocols, const char *buf)
++static int parse_protocol_change(struct rc_dev *dev, u64 *protocols,
++				 const char *buf)
+ {
+ 	const char *tmp;
+ 	unsigned count = 0;
+@@ -1055,7 +1058,8 @@ static int parse_protocol_change(u64 *protocols, const char *buf)
+ 			if (!strcasecmp(tmp, "lirc"))
+ 				mask = 0;
+ 			else {
+-				IR_dprintk(1, "Unknown protocol: '%s'\n", tmp);
++				dev_dbg(&dev->dev, "Unknown protocol: '%s'\n",
++					tmp);
+ 				return -EINVAL;
+ 			}
+ 		}
+@@ -1071,7 +1075,7 @@ static int parse_protocol_change(u64 *protocols, const char *buf)
+ 	}
+ 
+ 	if (!count) {
+-		IR_dprintk(1, "Protocol not specified\n");
++		dev_dbg(&dev->dev, "Protocol not specified\n");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1144,12 +1148,12 @@ static ssize_t store_protocols(struct device *device,
+ 	u64 old_protocols, new_protocols;
+ 	ssize_t rc;
+ 
+-	IR_dprintk(1, "Normal protocol change requested\n");
++	dev_dbg(&dev->dev, "Normal protocol change requested\n");
+ 	current_protocols = &dev->enabled_protocols;
+ 	filter = &dev->scancode_filter;
+ 
+ 	if (!dev->change_protocol) {
+-		IR_dprintk(1, "Protocol switching not supported\n");
++		dev_dbg(&dev->dev, "Protocol switching not supported\n");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1157,14 +1161,14 @@ static ssize_t store_protocols(struct device *device,
+ 
+ 	old_protocols = *current_protocols;
+ 	new_protocols = old_protocols;
+-	rc = parse_protocol_change(&new_protocols, buf);
++	rc = parse_protocol_change(dev, &new_protocols, buf);
+ 	if (rc < 0)
+ 		goto out;
+ 
+ 	rc = dev->change_protocol(dev, &new_protocols);
+ 	if (rc < 0) {
+-		IR_dprintk(1, "Error setting protocols to 0x%llx\n",
+-			   (long long)new_protocols);
++		dev_dbg(&dev->dev, "Error setting protocols to 0x%llx\n",
++			(long long)new_protocols);
+ 		goto out;
+ 	}
+ 
+@@ -1173,8 +1177,8 @@ static ssize_t store_protocols(struct device *device,
+ 
+ 	if (new_protocols != old_protocols) {
+ 		*current_protocols = new_protocols;
+-		IR_dprintk(1, "Protocols changed to 0x%llx\n",
+-			   (long long)new_protocols);
++		dev_dbg(&dev->dev, "Protocols changed to 0x%llx\n",
++			(long long)new_protocols);
+ 	}
+ 
+ 	/*
+@@ -1362,8 +1366,8 @@ static ssize_t show_wakeup_protocols(struct device *device,
+ 
+ 	mutex_unlock(&dev->lock);
+ 
+-	IR_dprintk(1, "%s: allowed - 0x%llx, enabled - %d\n",
+-		   __func__, (long long)allowed, enabled);
++	dev_dbg(&dev->dev, "%s: allowed - 0x%llx, enabled - %d\n",
++		__func__, (long long)allowed, enabled);
+ 
+ 	for (i = 0; i < ARRAY_SIZE(protocols); i++) {
+ 		if (allowed & (1ULL << i)) {
+@@ -1438,7 +1442,7 @@ static ssize_t store_wakeup_protocols(struct device *device,
+ 
+ 	if (dev->wakeup_protocol != protocol) {
+ 		dev->wakeup_protocol = protocol;
+-		IR_dprintk(1, "Wakeup protocol changed to %d\n", protocol);
++		dev_dbg(&dev->dev, "Wakeup protocol changed to %d\n", protocol);
+ 
+ 		if (protocol == RC_PROTO_RC6_MCE)
+ 			dev->scancode_wakeup_filter.data = 0x800f0000;
+@@ -1772,9 +1776,8 @@ int rc_register_device(struct rc_dev *dev)
+ 			goto out_rx;
+ 	}
+ 
+-	IR_dprintk(1, "Registered rc%u (driver: %s)\n",
+-		   dev->minor,
+-		   dev->driver_name ? dev->driver_name : "unknown");
++	dev_dbg(&dev->dev, "Registered rc%u (driver: %s)\n", dev->minor,
++		dev->driver_name ? dev->driver_name : "unknown");
+ 
+ 	return 0;
+ 
+@@ -1869,9 +1872,5 @@ static void __exit rc_core_exit(void)
+ subsys_initcall(rc_core_init);
+ module_exit(rc_core_exit);
+ 
+-int rc_core_debug;    /* ir_debug level (0,1,2) */
+-EXPORT_SYMBOL_GPL(rc_core_debug);
+-module_param_named(debug, rc_core_debug, int, 0644);
+-
+ MODULE_AUTHOR("Mauro Carvalho Chehab");
+ MODULE_LICENSE("GPL");
+diff --git a/include/media/rc-core.h b/include/media/rc-core.h
+index 314a1edb6189b..ed673b5bb9ed8 100644
+--- a/include/media/rc-core.h
++++ b/include/media/rc-core.h
+@@ -22,13 +22,6 @@
+ #include <linux/timer.h>
+ #include <media/rc-map.h>
+ 
+-extern int rc_core_debug;
+-#define IR_dprintk(level, fmt, ...)				\
+-do {								\
+-	if (rc_core_debug >= level)				\
+-		printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__);	\
+-} while (0)
+-
+ /**
+  * enum rc_driver_type - type of the RC output
+  *
+-- 
+2.11.0
+
+
+From 7f864f72d8c58e812b1f27c2a1df659bd6a9a9dd Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Tue, 27 Mar 2018 19:35:11 +0200
-Subject: [PATCH 1/9] media: rc: set timeout to smallest value required by
+Subject: [PATCH 03/11] media: rc: set timeout to smallest value required by
  enabled protocols
 
 backport of https://patchwork.linuxtv.org/patch/48516/
@@ -31,7 +1095,7 @@ Signed-off-by: Matthias Reichl <hias@horus.com>
  12 files changed, 46 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/media/rc/ir-jvc-decoder.c b/drivers/media/rc/ir-jvc-decoder.c
-index e2bd68c42edfa..fc931fe39bb75 100644
+index da6c8e8d3c5cf..0aa1b5b869e28 100644
 --- a/drivers/media/rc/ir-jvc-decoder.c
 +++ b/drivers/media/rc/ir-jvc-decoder.c
 @@ -212,6 +212,7 @@ static struct ir_raw_handler jvc_handler = {
@@ -43,10 +1107,10 @@ index e2bd68c42edfa..fc931fe39bb75 100644
  
  static int __init ir_jvc_decode_init(void)
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index 7c572a6436563..7afeab04dbbfd 100644
+index 1538a0fe328d1..b646883aabad1 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -474,6 +474,7 @@ static struct ir_raw_handler mce_kbd_handler = {
+@@ -476,6 +476,7 @@ static struct ir_raw_handler mce_kbd_handler = {
  	.encode		= ir_mce_kbd_encode,
  	.raw_register	= ir_mce_kbd_register,
  	.raw_unregister	= ir_mce_kbd_unregister,
@@ -55,10 +1119,10 @@ index 7c572a6436563..7afeab04dbbfd 100644
  
  static int __init ir_mce_kbd_decode_init(void)
 diff --git a/drivers/media/rc/ir-nec-decoder.c b/drivers/media/rc/ir-nec-decoder.c
-index a95d09acc22a5..3e12059add84d 100644
+index 0078f83bc9ef9..b55096aab27f7 100644
 --- a/drivers/media/rc/ir-nec-decoder.c
 +++ b/drivers/media/rc/ir-nec-decoder.c
-@@ -264,6 +264,7 @@ static struct ir_raw_handler nec_handler = {
+@@ -262,6 +262,7 @@ static struct ir_raw_handler nec_handler = {
  							RC_PROTO_BIT_NEC32,
  	.decode		= ir_nec_decode,
  	.encode		= ir_nec_encode,
@@ -67,7 +1131,7 @@ index a95d09acc22a5..3e12059add84d 100644
  
  static int __init ir_nec_decode_init(void)
 diff --git a/drivers/media/rc/ir-rc5-decoder.c b/drivers/media/rc/ir-rc5-decoder.c
-index 1292f534de434..1eaca0528b691 100644
+index babb88de1d975..1c3d216308fa3 100644
 --- a/drivers/media/rc/ir-rc5-decoder.c
 +++ b/drivers/media/rc/ir-rc5-decoder.c
 @@ -282,6 +282,7 @@ static struct ir_raw_handler rc5_handler = {
@@ -79,7 +1143,7 @@ index 1292f534de434..1eaca0528b691 100644
  
  static int __init ir_rc5_decode_init(void)
 diff --git a/drivers/media/rc/ir-rc6-decoder.c b/drivers/media/rc/ir-rc6-decoder.c
-index 5d0d2fe3b7a7f..8c4c733a5f27b 100644
+index a625fdc0d2cab..18d3c9bcea093 100644
 --- a/drivers/media/rc/ir-rc6-decoder.c
 +++ b/drivers/media/rc/ir-rc6-decoder.c
 @@ -408,6 +408,7 @@ static struct ir_raw_handler rc6_handler = {
@@ -91,7 +1155,7 @@ index 5d0d2fe3b7a7f..8c4c733a5f27b 100644
  
  static int __init ir_rc6_decode_init(void)
 diff --git a/drivers/media/rc/ir-sanyo-decoder.c b/drivers/media/rc/ir-sanyo-decoder.c
-index 758c60956850f..935880d4889ec 100644
+index 88c6eee7cd0ad..c24fa36c66b78 100644
 --- a/drivers/media/rc/ir-sanyo-decoder.c
 +++ b/drivers/media/rc/ir-sanyo-decoder.c
 @@ -218,6 +218,7 @@ static struct ir_raw_handler sanyo_handler = {
@@ -103,10 +1167,10 @@ index 758c60956850f..935880d4889ec 100644
  
  static int __init ir_sanyo_decode_init(void)
 diff --git a/drivers/media/rc/ir-sharp-decoder.c b/drivers/media/rc/ir-sharp-decoder.c
-index 129b558acc921..96d818bd0cc98 100644
+index 822ee6fc15ce9..82e444cd27ee0 100644
 --- a/drivers/media/rc/ir-sharp-decoder.c
 +++ b/drivers/media/rc/ir-sharp-decoder.c
-@@ -226,6 +226,7 @@ static struct ir_raw_handler sharp_handler = {
+@@ -225,6 +225,7 @@ static struct ir_raw_handler sharp_handler = {
  	.protocols	= RC_PROTO_BIT_SHARP,
  	.decode		= ir_sharp_decode,
  	.encode		= ir_sharp_encode,
@@ -115,10 +1179,10 @@ index 129b558acc921..96d818bd0cc98 100644
  
  static int __init ir_sharp_decode_init(void)
 diff --git a/drivers/media/rc/ir-sony-decoder.c b/drivers/media/rc/ir-sony-decoder.c
-index a47ced763031d..d57d15b431f6d 100644
+index 75407721b9738..20d35b0d9ca01 100644
 --- a/drivers/media/rc/ir-sony-decoder.c
 +++ b/drivers/media/rc/ir-sony-decoder.c
-@@ -221,6 +221,7 @@ static struct ir_raw_handler sony_handler = {
+@@ -223,6 +223,7 @@ static struct ir_raw_handler sony_handler = {
  							RC_PROTO_BIT_SONY20,
  	.decode		= ir_sony_decode,
  	.encode		= ir_sony_encode,
@@ -127,10 +1191,10 @@ index a47ced763031d..d57d15b431f6d 100644
  
  static int __init ir_sony_decode_init(void)
 diff --git a/drivers/media/rc/ir-xmp-decoder.c b/drivers/media/rc/ir-xmp-decoder.c
-index 6f464be1c8d7a..1ac3a4cee69e3 100644
+index f48cfb5588eb6..423f6ef64722b 100644
 --- a/drivers/media/rc/ir-xmp-decoder.c
 +++ b/drivers/media/rc/ir-xmp-decoder.c
-@@ -198,6 +198,7 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
+@@ -199,6 +199,7 @@ static int ir_xmp_decode(struct rc_dev *dev, struct ir_raw_event ev)
  static struct ir_raw_handler xmp_handler = {
  	.protocols	= RC_PROTO_BIT_XMP,
  	.decode		= ir_xmp_decode,
@@ -151,7 +1215,7 @@ index 7da9c96cb0588..5fd3b5aed9ece 100644
  	/* These two should only be used by the lirc decoder */
  	int (*raw_register)(struct rc_dev *dev);
 diff --git a/drivers/media/rc/rc-ir-raw.c b/drivers/media/rc/rc-ir-raw.c
-index 503bc425a187c..7f0197bf5d32d 100644
+index 9030b286d3652..c2656d00ccb16 100644
 --- a/drivers/media/rc/rc-ir-raw.c
 +++ b/drivers/media/rc/rc-ir-raw.c
 @@ -215,7 +215,36 @@ ir_raw_get_allowed_protocols(void)
@@ -193,10 +1257,10 @@ index 503bc425a187c..7f0197bf5d32d 100644
  }
  
 diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
-index 72f381522cb26..e7e20bcfe2729 100644
+index 7bd40e6607866..d47e721468aea 100644
 --- a/drivers/media/rc/rc-main.c
 +++ b/drivers/media/rc/rc-main.c
-@@ -1161,6 +1161,9 @@ static ssize_t store_protocols(struct device *device,
+@@ -1165,6 +1165,9 @@ static ssize_t store_protocols(struct device *device,
  	if (rc < 0)
  		goto out;
  
@@ -205,8 +1269,8 @@ index 72f381522cb26..e7e20bcfe2729 100644
 +
  	rc = dev->change_protocol(dev, &new_protocols);
  	if (rc < 0) {
- 		IR_dprintk(1, "Error setting protocols to 0x%llx\n",
-@@ -1168,9 +1171,6 @@ static ssize_t store_protocols(struct device *device,
+ 		dev_dbg(&dev->dev, "Error setting protocols to 0x%llx\n",
+@@ -1172,9 +1175,6 @@ static ssize_t store_protocols(struct device *device,
  		goto out;
  	}
  
@@ -215,8 +1279,8 @@ index 72f381522cb26..e7e20bcfe2729 100644
 -
  	if (new_protocols != old_protocols) {
  		*current_protocols = new_protocols;
- 		IR_dprintk(1, "Protocols changed to 0x%llx\n",
-@@ -1638,6 +1638,9 @@ static int rc_prepare_rx_device(struct rc_dev *dev)
+ 		dev_dbg(&dev->dev, "Protocols changed to 0x%llx\n",
+@@ -1642,6 +1642,9 @@ static int rc_prepare_rx_device(struct rc_dev *dev)
  
  	rc_proto = BIT_ULL(rc_map->rc_proto);
  
@@ -226,7 +1290,7 @@ index 72f381522cb26..e7e20bcfe2729 100644
  	if (dev->change_protocol) {
  		rc = dev->change_protocol(dev, &rc_proto);
  		if (rc < 0)
-@@ -1645,9 +1648,6 @@ static int rc_prepare_rx_device(struct rc_dev *dev)
+@@ -1649,9 +1652,6 @@ static int rc_prepare_rx_device(struct rc_dev *dev)
  		dev->enabled_protocols = rc_proto;
  	}
  
@@ -240,10 +1304,10 @@ index 72f381522cb26..e7e20bcfe2729 100644
 2.11.0
 
 
-From a3811d0485c52e5a02cf66ead4b99708533ee42b Mon Sep 17 00:00:00 2001
+From 9de6c3b73b1994a64948976423ad8c928cb0b962 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Tue, 27 Mar 2018 19:45:36 +0200
-Subject: [PATCH 2/9] media: rc: per-protocol repeat period and minimum keyup
+Subject: [PATCH 04/11] media: rc: per-protocol repeat period and minimum keyup
  timer
 
 backport of https://patchwork.linuxtv.org/patch/48520/
@@ -259,9 +1323,10 @@ account, and had to be reverted.
 Signed-off-by: Sean Young <sean@mess.org>
 Signed-off-by: Matthias Reichl <hias@horus.com>
 ---
- drivers/media/cec/cec-core.c |  2 +-
- drivers/media/rc/rc-main.c   | 54 +++++++++++++++++++++++---------------------
- 2 files changed, 29 insertions(+), 27 deletions(-)
+ drivers/media/cec/cec-core.c     |  2 +-
+ drivers/media/rc/ir-lirc-codec.c |  2 +-
+ drivers/media/rc/rc-main.c       | 54 +++++++++++++++++++++-------------------
+ 3 files changed, 30 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/media/cec/cec-core.c b/drivers/media/cec/cec-core.c
 index 648136e552d5b..4cf35e4af7bd6 100644
@@ -276,8 +1341,21 @@ index 648136e552d5b..4cf35e4af7bd6 100644
  	adap->rc_last_scancode = -1;
  #endif
  	return adap;
+diff --git a/drivers/media/rc/ir-lirc-codec.c b/drivers/media/rc/ir-lirc-codec.c
+index 1c43f3c09975b..dbc20fe48200e 100644
+--- a/drivers/media/rc/ir-lirc-codec.c
++++ b/drivers/media/rc/ir-lirc-codec.c
+@@ -314,7 +314,7 @@ static long ir_lirc_ioctl(struct file *filep, unsigned int cmd,
+ 		break;
+ 
+ 	case LIRC_SET_REC_TIMEOUT_REPORTS:
+-		if (!dev->timeout)
++		if (dev->driver_type != RC_DRIVER_IR_RAW)
+ 			return -ENOTTY;
+ 
+ 		lirc->send_timeout_reports = !!val;
 diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
-index e7e20bcfe2729..36f99a0919c30 100644
+index d47e721468aea..dafa3fbf0e6e1 100644
 --- a/drivers/media/rc/rc-main.c
 +++ b/drivers/media/rc/rc-main.c
 @@ -35,48 +35,48 @@ static const struct {
@@ -352,7 +1430,7 @@ index e7e20bcfe2729..36f99a0919c30 100644
  };
  
  /* Used to keep track of known keymaps */
-@@ -659,7 +659,8 @@ static void ir_timer_keyup(unsigned long cookie)
+@@ -660,7 +660,8 @@ static void ir_timer_keyup(unsigned long cookie)
  void rc_repeat(struct rc_dev *dev)
  {
  	unsigned long flags;
@@ -362,7 +1440,7 @@ index e7e20bcfe2729..36f99a0919c30 100644
  
  	spin_lock_irqsave(&dev->keylock, flags);
  
-@@ -669,7 +670,7 @@ void rc_repeat(struct rc_dev *dev)
+@@ -670,7 +671,7 @@ void rc_repeat(struct rc_dev *dev)
  	input_event(dev->input_dev, EV_MSC, MSC_SCAN, dev->last_scancode);
  	input_sync(dev->input_dev);
  
@@ -371,7 +1449,7 @@ index e7e20bcfe2729..36f99a0919c30 100644
  	mod_timer(&dev->timer_keyup, dev->keyup_jiffies);
  
  out:
-@@ -740,7 +741,7 @@ void rc_keydown(struct rc_dev *dev, enum rc_proto protocol, u32 scancode,
+@@ -741,7 +742,7 @@ void rc_keydown(struct rc_dev *dev, enum rc_proto protocol, u32 scancode,
  	ir_do_keydown(dev, protocol, scancode, keycode, toggle);
  
  	if (dev->keypressed) {
@@ -380,7 +1458,7 @@ index e7e20bcfe2729..36f99a0919c30 100644
  			msecs_to_jiffies(protocols[protocol].repeat_period);
  		mod_timer(&dev->timer_keyup, dev->keyup_jiffies);
  	}
-@@ -1553,6 +1554,7 @@ struct rc_dev *rc_allocate_device(enum rc_driver_type type)
+@@ -1557,6 +1558,7 @@ struct rc_dev *rc_allocate_device(enum rc_driver_type type)
  		dev->input_dev->setkeycode = ir_setkeycode;
  		input_set_drvdata(dev->input_dev, dev);
  
@@ -392,10 +1470,10 @@ index e7e20bcfe2729..36f99a0919c30 100644
 2.11.0
 
 
-From 4a6ca12b029850a01d2ec0b4b32513c118f5e5db Mon Sep 17 00:00:00 2001
+From a9dd059682855956205ea95829ed579565d073d3 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:39 +0100
-Subject: [PATCH 3/9] media: rc: mce_kbd decoder: low timeout values cause
+Subject: [PATCH 05/11] media: rc: mce_kbd decoder: low timeout values cause
  double keydowns
 
 backport of https://patchwork.linuxtv.org/patch/48522/
@@ -415,13 +1493,13 @@ Signed-off-by: Matthias Reichl <hias@horus.com>
  1 file changed, 7 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index 7afeab04dbbfd..a243d2d1ca935 100644
+index b646883aabad1..b6c97a18dcc4f 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -319,11 +319,13 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
- 		case MCIR2_KEYBOARD_NBITS:
+@@ -321,11 +321,13 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
  			scancode = data->body & 0xffff;
- 			IR_dprintk(1, "keyboard data 0x%08x\n", data->body);
+ 			dev_dbg(&dev->dev, "keyboard data 0x%08x\n",
+ 				data->body);
 -			if (dev->timeout)
 -				delay = usecs_to_jiffies(dev->timeout / 1000);
 -			else
@@ -435,16 +1513,16 @@ index 7afeab04dbbfd..a243d2d1ca935 100644
 +				del_timer(&data->rx_timeout);
 +			}
  			/* Pass data to keyboard buffer parser */
- 			ir_mce_kbd_process_keyboard_data(data->idev, scancode);
+ 			ir_mce_kbd_process_keyboard_data(dev, scancode);
  			break;
 -- 
 2.11.0
 
 
-From 5a0a1c9910d5fd8da5885cb6728946cd958ea676 Mon Sep 17 00:00:00 2001
+From 0ee255c5c66507737b7310ddc52acd71853790c7 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:40 +0100
-Subject: [PATCH 4/9] media: rc: mce_kbd protocol encodes two scancodes
+Subject: [PATCH 06/11] media: rc: mce_kbd protocol encodes two scancodes
 
 backport of https://patchwork.linuxtv.org/patch/48518/
 
@@ -459,13 +1537,13 @@ Signed-off-by: Matthias Reichl <hias@horus.com>
  2 files changed, 13 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index a243d2d1ca935..2ea48a54f2b3e 100644
+index b6c97a18dcc4f..77ce3cb36f8c3 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
 @@ -147,13 +147,14 @@ static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
- static void ir_mce_kbd_process_keyboard_data(struct input_dev *idev,
- 					     u32 scancode)
+ static void ir_mce_kbd_process_keyboard_data(struct rc_dev *dev, u32 scancode)
  {
+ 	struct mce_kbd_dec *data = &dev->raw->mce_kbd;
 -	u8 keydata   = (scancode >> 8) & 0xff;
 +	u8 keydata1  = (scancode >> 8) & 0xff;
 +	u8 keydata2  = (scancode >> 16) & 0xff;
@@ -474,41 +1552,41 @@ index a243d2d1ca935..2ea48a54f2b3e 100644
 +	unsigned char maskcode;
  	int i, keystate;
  
--	IR_dprintk(1, "keyboard: keydata = 0x%02x, shiftmask = 0x%02x\n",
--		   keydata, shiftmask);
-+	IR_dprintk(1, "keyboard: keydata2 = 0x%02x, keydata1 = 0x%02x, shiftmask = 0x%02x\n",
-+		   keydata2, keydata1, shiftmask);
+-	dev_dbg(&dev->dev, "keyboard: keydata = 0x%02x, shiftmask = 0x%02x\n",
+-		keydata, shiftmask);
++	dev_dbg(&dev->dev, "keyboard: keydata2 = 0x%02x, keydata1 = 0x%02x, shiftmask = 0x%02x\n",
++		keydata2, keydata1, shiftmask);
  
  	for (i = 0; i < 7; i++) {
  		maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
-@@ -164,10 +165,12 @@ static void ir_mce_kbd_process_keyboard_data(struct input_dev *idev,
- 		input_report_key(idev, maskcode, keystate);
+@@ -164,10 +165,12 @@ static void ir_mce_kbd_process_keyboard_data(struct rc_dev *dev, u32 scancode)
+ 		input_report_key(data->idev, maskcode, keystate);
  	}
  
 -	if (keydata) {
 -		keycode = kbd_keycodes[keydata];
--		input_report_key(idev, keycode, 1);
+-		input_report_key(data->idev, keycode, 1);
 -	} else {
 +	if (keydata1)
-+		input_report_key(idev, kbd_keycodes[keydata1], 1);
++		input_report_key(data->idev, kbd_keycodes[keydata1], 1);
 +	if (keydata2)
-+		input_report_key(idev, kbd_keycodes[keydata2], 1);
++		input_report_key(data->idev, kbd_keycodes[keydata2], 1);
 +
 +	if (!keydata1 && !keydata2) {
  		for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
- 			input_report_key(idev, kbd_keycodes[i], 0);
+ 			input_report_key(data->idev, kbd_keycodes[i], 0);
  	}
-@@ -317,7 +320,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+@@ -318,7 +321,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
  
  		switch (data->wanted_bits) {
  		case MCIR2_KEYBOARD_NBITS:
 -			scancode = data->body & 0xffff;
 +			scancode = data->body & 0xffffff;
- 			IR_dprintk(1, "keyboard data 0x%08x\n", data->body);
+ 			dev_dbg(&dev->dev, "keyboard data 0x%08x\n",
+ 				data->body);
  			if (scancode) {
- 				delay = nsecs_to_jiffies(dev->timeout) +
 diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
-index 36f99a0919c30..34cef7aa207c9 100644
+index dafa3fbf0e6e1..43a423da127c2 100644
 --- a/drivers/media/rc/rc-main.c
 +++ b/drivers/media/rc/rc-main.c
 @@ -60,7 +60,7 @@ static const struct {
@@ -524,10 +1602,10 @@ index 36f99a0919c30..34cef7aa207c9 100644
 2.11.0
 
 
-From 4b41e56e488efa81470eac901ba0e0af597a293f Mon Sep 17 00:00:00 2001
+From 4e3d58925baaede9c16b0dfe755d37870c46dc4b Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:41 +0100
-Subject: [PATCH 5/9] media: rc: mce_kbd decoder: fix stuck keys
+Subject: [PATCH 07/11] media: rc: mce_kbd decoder: fix stuck keys
 
 backport of https://patchwork.linuxtv.org/patch/48519/
 
@@ -543,15 +1621,15 @@ Signed-off-by: Matthias Reichl <hias@horus.com>
  1 file changed, 2 insertions(+)
 
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index 2ea48a54f2b3e..164302ec4fef0 100644
+index 77ce3cb36f8c3..5b4802513b1d6 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
 @@ -130,6 +130,8 @@ static void mce_kbd_rx_timeout(unsigned long data)
  
  	for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
- 		input_report_key(mce_kbd->idev, kbd_keycodes[i], 0);
+ 		input_report_key(raw->mce_kbd.idev, kbd_keycodes[i], 0);
 +
-+	input_sync(mce_kbd->idev);
++	input_sync(raw->mce_kbd.idev);
  }
  
  static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
@@ -559,10 +1637,10 @@ index 2ea48a54f2b3e..164302ec4fef0 100644
 2.11.0
 
 
-From 5f5575313b08dd32cbb053cecabdd3798a2ba385 Mon Sep 17 00:00:00 2001
+From 953e9db656104d0be0c0030825135c7fe043580e Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:42 +0100
-Subject: [PATCH 6/9] media: rc: mceusb: allow the timeout to be configurable
+Subject: [PATCH 08/11] media: rc: mceusb: allow the timeout to be configurable
 
 backport of https://patchwork.linuxtv.org/patch/48521/
 
@@ -619,10 +1697,10 @@ index bf7aaff3aa375..160754a7a3822 100644
 2.11.0
 
 
-From e4df4203c574a5cbdc0f16e1188f42b1b3bf03a3 Mon Sep 17 00:00:00 2001
-From: Matthias Reichl <hias@horus.com>
-Date: Sun, 15 Apr 2018 17:26:21 +0200
-Subject: [PATCH 7/9] media: rc: mce_kbd decoder: remove superfluous call to
+From b44b00a8c2c1fa27eaea4ce78d5697433a1b9a68 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Sat, 14 Apr 2018 22:45:30 +0100
+Subject: [PATCH 09/11] media: rc: mce_kbd decoder: remove superfluous call to
  input_sync
 
 backport of https://patchwork.linuxtv.org/patch/48681/
@@ -637,12 +1715,12 @@ Signed-off-by: Matthias Reichl <hias@horus.com>
  1 file changed, 1 deletion(-)
 
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index 164302ec4fef0..f057b57074c97 100644
+index 5b4802513b1d6..c185469ed011b 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -355,7 +355,6 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
- 	IR_dprintk(1, "failed at state %i (%uus %s)\n",
- 		   data->state, TO_US(ev.duration), TO_STR(ev.pulse));
+@@ -357,7 +357,6 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+ 	dev_dbg(&dev->dev, "failed at state %i (%uus %s)\n",
+ 		data->state, TO_US(ev.duration), TO_STR(ev.pulse));
  	data->state = STATE_INACTIVE;
 -	input_sync(data->idev);
  	return -EINVAL;
@@ -652,10 +1730,10 @@ index 164302ec4fef0..f057b57074c97 100644
 2.11.0
 
 
-From d9d7831e99369188f879a316874048e40d6b0042 Mon Sep 17 00:00:00 2001
+From 01b9c58f3911b1751851402720916e115e3eaff6 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
-Date: Sun, 15 Apr 2018 17:38:49 +0200
-Subject: [PATCH 8/9] media: rc: mce_kbd decoder: fix race condition
+Date: Sun, 22 Apr 2018 15:30:08 +0200
+Subject: [PATCH 10/11] media: rc: mce_kbd decoder: fix race condition
 
 backport of https://patchwork.linuxtv.org/patch/48680/
 
@@ -678,61 +1756,62 @@ Signed-off-by: Matthias Reichl <hias@horus.com>
  2 files changed, 17 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/media/rc/ir-mce_kbd-decoder.c b/drivers/media/rc/ir-mce_kbd-decoder.c
-index f057b57074c97..67c37db76737f 100644
+index c185469ed011b..dcce89e4260f4 100644
 --- a/drivers/media/rc/ir-mce_kbd-decoder.c
 +++ b/drivers/media/rc/ir-mce_kbd-decoder.c
-@@ -120,18 +120,24 @@ static void mce_kbd_rx_timeout(unsigned long data)
- 	struct mce_kbd_dec *mce_kbd = (struct mce_kbd_dec *)data;
- 	int i;
+@@ -119,19 +119,25 @@ static void mce_kbd_rx_timeout(unsigned long data)
+ {
+ 	struct ir_raw_event_ctrl *raw = (struct ir_raw_event_ctrl *)data;
  	unsigned char maskcode;
 +	unsigned long flags;
+ 	int i;
  
- 	IR_dprintk(2, "timer callback clearing all keys\n");
+ 	dev_dbg(&raw->dev->dev, "timer callback clearing all keys\n");
  
 -	for (i = 0; i < 7; i++) {
 -		maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
--		input_report_key(mce_kbd->idev, maskcode, 0);
+-		input_report_key(raw->mce_kbd.idev, maskcode, 0);
 -	}
-+	spin_lock_irqsave(&mce_kbd->keylock, flags);
++	spin_lock_irqsave(&raw->mce_kbd.keylock, flags);
  
 -	for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
--		input_report_key(mce_kbd->idev, kbd_keycodes[i], 0);
-+	if (time_is_before_eq_jiffies(mce_kbd->rx_timeout.expires)) {
+-		input_report_key(raw->mce_kbd.idev, kbd_keycodes[i], 0);
++	if (time_is_before_eq_jiffies(raw->mce_kbd.rx_timeout.expires)) {
 +		for (i = 0; i < 7; i++) {
 +			maskcode = kbd_keycodes[MCIR2_MASK_KEYS_START + i];
-+			input_report_key(mce_kbd->idev, maskcode, 0);
++			input_report_key(raw->mce_kbd.idev, maskcode, 0);
 +		}
  
--	input_sync(mce_kbd->idev);
+-	input_sync(raw->mce_kbd.idev);
 +		for (i = 0; i < MCIR2_MASK_KEYS_START; i++)
-+			input_report_key(mce_kbd->idev, kbd_keycodes[i], 0);
++			input_report_key(raw->mce_kbd.idev, kbd_keycodes[i], 0);
 +
-+		input_sync(mce_kbd->idev);
++		input_sync(raw->mce_kbd.idev);
 +	}
-+	spin_unlock_irqrestore(&mce_kbd->keylock, flags);
++	spin_unlock_irqrestore(&raw->mce_kbd.keylock, flags);
  }
  
  static enum mce_kbd_mode mce_kbd_mode(struct mce_kbd_dec *data)
-@@ -324,6 +330,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
- 		case MCIR2_KEYBOARD_NBITS:
+@@ -326,6 +332,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
  			scancode = data->body & 0xffffff;
- 			IR_dprintk(1, "keyboard data 0x%08x\n", data->body);
+ 			dev_dbg(&dev->dev, "keyboard data 0x%08x\n",
+ 				data->body);
 +			spin_lock(&data->keylock);
  			if (scancode) {
  				delay = nsecs_to_jiffies(dev->timeout) +
  					msecs_to_jiffies(100);
-@@ -333,6 +340,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
+@@ -335,6 +342,7 @@ static int ir_mce_kbd_decode(struct rc_dev *dev, struct ir_raw_event ev)
  			}
  			/* Pass data to keyboard buffer parser */
- 			ir_mce_kbd_process_keyboard_data(data->idev, scancode);
+ 			ir_mce_kbd_process_keyboard_data(dev, scancode);
 +			spin_unlock(&data->keylock);
  			break;
  		case MCIR2_MOUSE_NBITS:
  			scancode = data->body & 0x1fffff;
-@@ -397,6 +405,7 @@ static int ir_mce_kbd_register(struct rc_dev *dev)
+@@ -399,6 +407,7 @@ static int ir_mce_kbd_register(struct rc_dev *dev)
  
  	setup_timer(&mce_kbd->rx_timeout, mce_kbd_rx_timeout,
- 		    (unsigned long)mce_kbd);
+ 		    (unsigned long)dev->raw);
 +	spin_lock_init(&mce_kbd->keylock);
  
  	input_set_drvdata(idev, mce_kbd);
@@ -753,10 +1832,10 @@ index 5fd3b5aed9ece..77928ae431041 100644
 2.11.0
 
 
-From 01a33503e6b8944e1ef028c32c877448190d7db3 Mon Sep 17 00:00:00 2001
+From fc33405bb3b2cc74b2412b5e4a6bdfbdc5030efc Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
-Date: Wed, 18 Apr 2018 13:50:52 +0200
-Subject: [PATCH 9/9] media: rc: mceusb: IR of length 0 means IR timeout, not
+Date: Sun, 22 Apr 2018 15:34:53 +0200
+Subject: [PATCH 11/11] media: rc: mceusb: IR of length 0 means IR timeout, not
  reset
 
 backport of https://patchwork.linuxtv.org/patch/48782/
