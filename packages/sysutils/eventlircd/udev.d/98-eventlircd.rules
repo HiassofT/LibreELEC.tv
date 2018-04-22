@@ -63,10 +63,6 @@ SUBSYSTEMS=="rc", \
 #-------------------------------------------------------------------------------
 # Ask eventlircd to handle power button and input event devices.
 #-------------------------------------------------------------------------------
-SUBSYSTEMS=="acpi", ATTRS{hid}=="LNXPWRBN", \
-  ENV{eventlircd_enable}="true", \
-  ENV{eventlircd_evmap}="default.evmap"
-
 # WeTek Play (power button)
 SUBSYSTEMS=="input", ATTRS{name}=="key_input", \
   ENV{eventlircd_enable}="true", \
