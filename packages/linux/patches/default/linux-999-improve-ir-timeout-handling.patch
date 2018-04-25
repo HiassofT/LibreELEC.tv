@@ -1,7 +1,7 @@
 From db82002ea94e3d37d674f49fdb82a25a70a5895b Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 22 Apr 2018 14:34:34 +0200
-Subject: [PATCH 01/13] media: rc: replace IR_dprintk() with dev_dbg in IR
+Subject: [PATCH 01/11] media: rc: replace IR_dprintk() with dev_dbg in IR
  decoders
 
 backport of 50078a903830796a8a47f26edc4cc10b9061711f
@@ -662,7 +662,7 @@ index 6f464be1c8d7a..f48cfb5588eb6 100644
 From 2941a7cc1d7d1a0c550d467405ec2fe0b50744d9 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 22 Apr 2018 14:44:43 +0200
-Subject: [PATCH 02/13] media: rc: remove IR_dprintk() from rc-core
+Subject: [PATCH 02/11] media: rc: remove IR_dprintk() from rc-core
 
 backport of 1f17f684d9ea3aafccbb5d727b19c5ffafb07e75
 
@@ -1065,7 +1065,7 @@ index 314a1edb6189b..ed673b5bb9ed8 100644
 From 7f864f72d8c58e812b1f27c2a1df659bd6a9a9dd Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Tue, 27 Mar 2018 19:35:11 +0200
-Subject: [PATCH 03/13] media: rc: set timeout to smallest value required by
+Subject: [PATCH 03/11] media: rc: set timeout to smallest value required by
  enabled protocols
 
 backport of https://patchwork.linuxtv.org/patch/48516/
@@ -1307,7 +1307,7 @@ index 7bd40e6607866..d47e721468aea 100644
 From 9de6c3b73b1994a64948976423ad8c928cb0b962 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Tue, 27 Mar 2018 19:45:36 +0200
-Subject: [PATCH 04/13] media: rc: per-protocol repeat period and minimum keyup
+Subject: [PATCH 04/11] media: rc: per-protocol repeat period and minimum keyup
  timer
 
 backport of https://patchwork.linuxtv.org/patch/48520/
@@ -1473,7 +1473,7 @@ index d47e721468aea..dafa3fbf0e6e1 100644
 From a9dd059682855956205ea95829ed579565d073d3 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:39 +0100
-Subject: [PATCH 05/13] media: rc: mce_kbd decoder: low timeout values cause
+Subject: [PATCH 05/11] media: rc: mce_kbd decoder: low timeout values cause
  double keydowns
 
 backport of https://patchwork.linuxtv.org/patch/48522/
@@ -1522,7 +1522,7 @@ index b646883aabad1..b6c97a18dcc4f 100644
 From 0ee255c5c66507737b7310ddc52acd71853790c7 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:40 +0100
-Subject: [PATCH 06/13] media: rc: mce_kbd protocol encodes two scancodes
+Subject: [PATCH 06/11] media: rc: mce_kbd protocol encodes two scancodes
 
 backport of https://patchwork.linuxtv.org/patch/48518/
 
@@ -1605,7 +1605,7 @@ index dafa3fbf0e6e1..43a423da127c2 100644
 From 4e3d58925baaede9c16b0dfe755d37870c46dc4b Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:41 +0100
-Subject: [PATCH 07/13] media: rc: mce_kbd decoder: fix stuck keys
+Subject: [PATCH 07/11] media: rc: mce_kbd decoder: fix stuck keys
 
 backport of https://patchwork.linuxtv.org/patch/48519/
 
@@ -1640,7 +1640,7 @@ index 77ce3cb36f8c3..5b4802513b1d6 100644
 From 953e9db656104d0be0c0030825135c7fe043580e Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:42 +0100
-Subject: [PATCH 08/13] media: rc: mceusb: allow the timeout to be configurable
+Subject: [PATCH 08/11] media: rc: mceusb: allow the timeout to be configurable
 
 backport of https://patchwork.linuxtv.org/patch/48521/
 
@@ -1700,7 +1700,7 @@ index bf7aaff3aa375..160754a7a3822 100644
 From b44b00a8c2c1fa27eaea4ce78d5697433a1b9a68 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sat, 14 Apr 2018 22:45:30 +0100
-Subject: [PATCH 09/13] media: rc: mce_kbd decoder: remove superfluous call to
+Subject: [PATCH 09/11] media: rc: mce_kbd decoder: remove superfluous call to
  input_sync
 
 backport of https://patchwork.linuxtv.org/patch/48681/
@@ -1733,7 +1733,7 @@ index 5b4802513b1d6..c185469ed011b 100644
 From 01b9c58f3911b1751851402720916e115e3eaff6 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 22 Apr 2018 15:30:08 +0200
-Subject: [PATCH 10/13] media: rc: mce_kbd decoder: fix race condition
+Subject: [PATCH 10/11] media: rc: mce_kbd decoder: fix race condition
 
 backport of https://patchwork.linuxtv.org/patch/48680/
 
@@ -1835,7 +1835,7 @@ index 5fd3b5aed9ece..77928ae431041 100644
 From fc33405bb3b2cc74b2412b5e4a6bdfbdc5030efc Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 22 Apr 2018 15:34:53 +0200
-Subject: [PATCH 11/13] media: rc: mceusb: IR of length 0 means IR timeout, not
+Subject: [PATCH 11/11] media: rc: mceusb: IR of length 0 means IR timeout, not
  reset
 
 backport of https://patchwork.linuxtv.org/patch/48782/
@@ -1870,107 +1870,6 @@ index 160754a7a3822..dc7ebed00b3ac 100644
  			break;
  		}
  
--- 
-2.11.0
-
-
-From 5bf00f2471678d2c9341ed9aebc415e6ba7c6600 Mon Sep 17 00:00:00 2001
-From: Matthias Reichl <hias@horus.com>
-Date: Mon, 23 Apr 2018 12:21:47 +0200
-Subject: [PATCH 12/13] TEST mceusb: add fixed_timeout module parameter
-
-Setting fixed_timeout to 1 disables the configurable timeout feature
-added by the IR latency patch series.
-
-Signed-off-by: Matthias Reichl <hias@horus.com>
----
- drivers/media/rc/mceusb.c | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/media/rc/mceusb.c b/drivers/media/rc/mceusb.c
-index dc7ebed00b3ac..fe56f3559e7bc 100644
---- a/drivers/media/rc/mceusb.c
-+++ b/drivers/media/rc/mceusb.c
-@@ -177,6 +177,10 @@
- #define VENDOR_PCTV		0x2013
- #define VENDOR_ADAPTEC		0x03f3
- 
-+static bool fixed_timeout;
-+module_param(fixed_timeout, bool, 0644);
-+MODULE_PARM_DESC(fixed_timeout, "disable configurable timeout (default: 0)");
-+
- enum mceusb_model_type {
- 	MCE_GEN2 = 0,		/* Most boards */
- 	MCE_GEN1,
-@@ -1293,10 +1297,15 @@ static struct rc_dev *mceusb_init_rc_dev(struct mceusb_dev *ir)
- 	rc->dev.parent = dev;
- 	rc->priv = ir;
- 	rc->allowed_protocols = RC_PROTO_BIT_ALL_IR_DECODER;
--	rc->min_timeout = US_TO_NS(MCE_TIME_UNIT);
- 	rc->timeout = MS_TO_NS(100);
--	rc->max_timeout = 10 * IR_DEFAULT_TIMEOUT;
--	rc->s_timeout = mceusb_set_timeout;
-+	if (fixed_timeout)
-+		dev_info(dev, "timeout configuration disabled");
-+	else {
-+		rc->min_timeout = US_TO_NS(MCE_TIME_UNIT);
-+		rc->max_timeout = 10 * IR_DEFAULT_TIMEOUT;
-+		rc->s_timeout = mceusb_set_timeout;
-+		dev_info(dev, "timeout configuration enabled");
-+	}
- 	if (!ir->flags.no_tx) {
- 		rc->s_tx_mask = mceusb_set_tx_mask;
- 		rc->s_tx_carrier = mceusb_set_tx_carrier;
--- 
-2.11.0
-
-
-From fa95c974026fced4d83bc79ac7f628f05a4ff6d8 Mon Sep 17 00:00:00 2001
-From: Matthias Reichl <hias@horus.com>
-Date: Mon, 23 Apr 2018 16:44:16 +0200
-Subject: [PATCH 13/13] TEST rc-core: add keyup_margin module parameter to
- tweak key up detection
-
-Signed-off-by: Matthias Reichl <hias@horus.com>
----
- drivers/media/rc/rc-main.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
-index 43a423da127c2..80dca1ea3cfde 100644
---- a/drivers/media/rc/rc-main.c
-+++ b/drivers/media/rc/rc-main.c
-@@ -30,6 +30,10 @@
- #define IR_TAB_MAX_SIZE	8192
- #define RC_DEV_MAX	256
- 
-+static int keyup_margin;
-+module_param(keyup_margin, int, 0644);
-+MODULE_PARM_DESC(keyup_margin, "additional margin in ms for keyup detection (default: 0)");
-+
- static const struct {
- 	const char *name;
- 	unsigned int repeat_period;
-@@ -661,7 +665,8 @@ void rc_repeat(struct rc_dev *dev)
- {
- 	unsigned long flags;
- 	unsigned int timeout = nsecs_to_jiffies(dev->timeout) +
--		msecs_to_jiffies(protocols[dev->last_protocol].repeat_period);
-+		msecs_to_jiffies(protocols[dev->last_protocol].repeat_period) +
-+		msecs_to_jiffies(keyup_margin);
- 
- 	spin_lock_irqsave(&dev->keylock, flags);
- 
-@@ -743,7 +748,8 @@ void rc_keydown(struct rc_dev *dev, enum rc_proto protocol, u32 scancode,
- 
- 	if (dev->keypressed) {
- 		dev->keyup_jiffies = jiffies + nsecs_to_jiffies(dev->timeout) +
--			msecs_to_jiffies(protocols[protocol].repeat_period);
-+			msecs_to_jiffies(protocols[protocol].repeat_period) +
-+			msecs_to_jiffies(keyup_margin);
- 		mod_timer(&dev->timer_keyup, dev->keyup_jiffies);
- 	}
- 	spin_unlock_irqrestore(&dev->keylock, flags);
 -- 
 2.11.0
 
