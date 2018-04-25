@@ -240,7 +240,7 @@ index 72f381522cb26..e7e20bcfe2729 100644
 2.11.0
 
 
-From a3811d0485c52e5a02cf66ead4b99708533ee42b Mon Sep 17 00:00:00 2001
+From 00f54931b0ff7202020567544605b7e3c4f1dee8 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Tue, 27 Mar 2018 19:45:36 +0200
 Subject: [PATCH 2/9] media: rc: per-protocol repeat period and minimum keyup
@@ -259,9 +259,10 @@ account, and had to be reverted.
 Signed-off-by: Sean Young <sean@mess.org>
 Signed-off-by: Matthias Reichl <hias@horus.com>
 ---
- drivers/media/cec/cec-core.c |  2 +-
- drivers/media/rc/rc-main.c   | 54 +++++++++++++++++++++++---------------------
- 2 files changed, 29 insertions(+), 27 deletions(-)
+ drivers/media/cec/cec-core.c     |  2 +-
+ drivers/media/rc/ir-lirc-codec.c |  2 +-
+ drivers/media/rc/rc-main.c       | 54 +++++++++++++++++++++-------------------
+ 3 files changed, 30 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/media/cec/cec-core.c b/drivers/media/cec/cec-core.c
 index 648136e552d5b..4cf35e4af7bd6 100644
@@ -276,6 +277,19 @@ index 648136e552d5b..4cf35e4af7bd6 100644
  	adap->rc_last_scancode = -1;
  #endif
  	return adap;
+diff --git a/drivers/media/rc/ir-lirc-codec.c b/drivers/media/rc/ir-lirc-codec.c
+index 4c8f456238bca..ef7e43038092f 100644
+--- a/drivers/media/rc/ir-lirc-codec.c
++++ b/drivers/media/rc/ir-lirc-codec.c
+@@ -314,7 +314,7 @@ static long ir_lirc_ioctl(struct file *filep, unsigned int cmd,
+ 		break;
+ 
+ 	case LIRC_SET_REC_TIMEOUT_REPORTS:
+-		if (!dev->timeout)
++		if (dev->driver_type != RC_DRIVER_IR_RAW)
+ 			return -ENOTTY;
+ 
+ 		lirc->send_timeout_reports = !!val;
 diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
 index e7e20bcfe2729..36f99a0919c30 100644
 --- a/drivers/media/rc/rc-main.c
@@ -392,7 +406,7 @@ index e7e20bcfe2729..36f99a0919c30 100644
 2.11.0
 
 
-From 4a6ca12b029850a01d2ec0b4b32513c118f5e5db Mon Sep 17 00:00:00 2001
+From 6f3d979fa02a3847799d838a03ad9c5ad009a778 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:39 +0100
 Subject: [PATCH 3/9] media: rc: mce_kbd decoder: low timeout values cause
@@ -441,7 +455,7 @@ index 7afeab04dbbfd..a243d2d1ca935 100644
 2.11.0
 
 
-From 5a0a1c9910d5fd8da5885cb6728946cd958ea676 Mon Sep 17 00:00:00 2001
+From f4d8df33339167784bb6a17e3ee2d20f9efe1b21 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:40 +0100
 Subject: [PATCH 4/9] media: rc: mce_kbd protocol encodes two scancodes
@@ -524,7 +538,7 @@ index 36f99a0919c30..34cef7aa207c9 100644
 2.11.0
 
 
-From 4b41e56e488efa81470eac901ba0e0af597a293f Mon Sep 17 00:00:00 2001
+From 8b0ffc3eccf8737aa93c6b7bf9bc9d1e10d634bd Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:41 +0100
 Subject: [PATCH 5/9] media: rc: mce_kbd decoder: fix stuck keys
@@ -559,7 +573,7 @@ index 2ea48a54f2b3e..164302ec4fef0 100644
 2.11.0
 
 
-From 5f5575313b08dd32cbb053cecabdd3798a2ba385 Mon Sep 17 00:00:00 2001
+From b77de094b54449079890b8cc4fbc2f98573253b2 Mon Sep 17 00:00:00 2001
 From: Sean Young <sean@mess.org>
 Date: Sun, 8 Apr 2018 22:19:42 +0100
 Subject: [PATCH 6/9] media: rc: mceusb: allow the timeout to be configurable
@@ -619,7 +633,7 @@ index bf7aaff3aa375..160754a7a3822 100644
 2.11.0
 
 
-From e4df4203c574a5cbdc0f16e1188f42b1b3bf03a3 Mon Sep 17 00:00:00 2001
+From dccebb7231209acb8da7f9f1e8fd1e7c12c3e70f Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 15 Apr 2018 17:26:21 +0200
 Subject: [PATCH 7/9] media: rc: mce_kbd decoder: remove superfluous call to
@@ -652,7 +666,7 @@ index 164302ec4fef0..f057b57074c97 100644
 2.11.0
 
 
-From d9d7831e99369188f879a316874048e40d6b0042 Mon Sep 17 00:00:00 2001
+From 731b38824c8145bbc7d55a9c2af4e449ff5988fb Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 15 Apr 2018 17:38:49 +0200
 Subject: [PATCH 8/9] media: rc: mce_kbd decoder: fix race condition
@@ -753,7 +767,7 @@ index 5fd3b5aed9ece..77928ae431041 100644
 2.11.0
 
 
-From 01a33503e6b8944e1ef028c32c877448190d7db3 Mon Sep 17 00:00:00 2001
+From 4e363f78b2aae387980ac411e0f901caee5da9e1 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Wed, 18 Apr 2018 13:50:52 +0200
 Subject: [PATCH 9/9] media: rc: mceusb: IR of length 0 means IR timeout, not
