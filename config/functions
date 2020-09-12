@@ -259,6 +259,11 @@ setup_toolchain() {
     TARGET_CXXFLAGS+=" $CXXFLAGS_OPTIM_DEFAULT"
   fi
 
+  if [ "${FRAMEPOINTER}" = "yes" ]; then
+    TARGET_CFLAGS+=" $CFLAGS_OPTIM_FRAMEPOINTER"
+    TARGET_CXXFLAGS+=" $CXXFLAGS_OPTIM_FRAMEPOINTER"
+  fi
+
   # position-independent code
   if flag_enabled "pic" "no"; then
     TARGET_CFLAGS+=" $CFLAGS_OPTIM_PIC"
