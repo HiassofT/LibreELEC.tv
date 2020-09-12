@@ -77,7 +77,7 @@ post_make_host() {
   rm -rf $TARGET_NAME/libgcc/libgcc_s.so
   ln -sf libgcc_s.so.1 $TARGET_NAME/libgcc/libgcc_s.so
 
-  if [ ! "${BUILD_WITH_DEBUG}" = "yes" ]; then
+  if [ ! "${BUILD_WITH_DEBUG}" = "yes" ] && [ "${NOSTRIP}" != "yes" ]; then
     ${TARGET_PREFIX}strip $TARGET_NAME/libgcc/libgcc_s.so*
     ${TARGET_PREFIX}strip $TARGET_NAME/libstdc++-v3/src/.libs/libstdc++.so*
   fi
