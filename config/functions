@@ -617,7 +617,7 @@ debug_strip() {
     die "ERROR: debug_strip() must not be called without configuring BUILD_WITH_DEBUG"
   fi
 
-  if [ "${BUILD_WITH_DEBUG}" != "yes" ] && flag_enabled "strip" "yes"; then
+  if [ "${BUILD_WITH_DEBUG}" != "yes" ] && flag_enabled "strip" "yes" && [ "${NOSTRIP}" != "yes" ]; then
     find $* -type f -executable | xargs $STRIP 2>/dev/null || :
   fi
 }
