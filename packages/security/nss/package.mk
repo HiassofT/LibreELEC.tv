@@ -68,7 +68,9 @@ make_target() {
 
 makeinstall_target() {
   cd $PKG_BUILD
-  $STRIP dist/Linux*/lib/*.so
+  if [ "${NOSTRIP}" != yes ]; then
+    $STRIP dist/Linux*/lib/*.so
+  fi
   cp -L dist/Linux*/lib/*.so $SYSROOT_PREFIX/usr/lib
   cp -L dist/Linux*/lib/libcrmf.a $SYSROOT_PREFIX/usr/lib
   mkdir -p $SYSROOT_PREFIX/usr/include/nss
