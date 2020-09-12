@@ -73,9 +73,15 @@ else
 fi
 
 if build_with_debug; then
-  PKG_FFMPEG_DEBUG="--enable-debug --disable-stripping"
+  PKG_FFMPEG_DEBUG="--enable-debug"
 else
-  PKG_FFMPEG_DEBUG="--disable-debug --enable-stripping"
+  PKG_FFMPEG_DEBUG="--disable-debug"
+fi
+
+if build_with_debug || [ "${NOSTRIP}" = "yes" ]; then
+  PKG_FFMPEG_DEBUG+=" --disable-stripping"
+else
+  PKG_FFMPEG_DEBUG+=" --enable-stripping"
 fi
 
 if target_has_feature neon; then
