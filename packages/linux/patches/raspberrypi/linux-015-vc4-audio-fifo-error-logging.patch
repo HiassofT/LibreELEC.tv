@@ -1,0 +1,66 @@
+From 82d483ad620e3d6dc6a7ca8afc753c34dc6810b7 Mon Sep 17 00:00:00 2001
+From: Dom Cobley <popcornmix@gmail.com>
+Date: Fri, 22 Jan 2021 19:09:03 +0000
+Subject: [PATCH] vc4: Log error flags from hdmi audio fifo
+
+Signed-off-by: Dom Cobley <popcornmix@gmail.com>
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 22 ++++++++++++++++++++++
+ drivers/gpu/drm/vc4/vc4_hdmi.h |  2 ++
+ 2 files changed, 24 insertions(+)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 7368577c68512..1bdaf6c24ed9b 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -1490,6 +1490,23 @@ static int sample_rate_to_mai_fmt(int samplerate)
+ 	}
+ }
+ 
++#define TIMEOUT 100    //milliseconds
++static void dlate_callback(struct timer_list *t)
++{
++	struct vc4_hdmi *vc4_hdmi = from_timer(vc4_hdmi, t, dlate_timer);
++	uint32_t ctl = HDMI_READ(HDMI_MAI_CTL);
++	if (ctl & (VC4_HD_MAI_CTL_DLATE | VC4_HD_MAI_CTL_ERRORE | VC4_HD_MAI_CTL_ERRORF)) {
++		printk(KERN_INFO "HDMI audio fifo error: %s%s%s(%x)\n",
++		(ctl & VC4_HD_MAI_CTL_DLATE) ? "dlate ":"",
++		(ctl & VC4_HD_MAI_CTL_ERRORE) ? "errore ":"",
++		(ctl & VC4_HD_MAI_CTL_ERRORF) ? "errorf ":"",
++		ctl);
++		// clear error bits
++		HDMI_WRITE(HDMI_MAI_CTL, ctl);
++	}
++	mod_timer(&vc4_hdmi->dlate_timer, jiffies + msecs_to_jiffies(TIMEOUT));
++}
++
+ /* HDMI audio codec callbacks */
+ static int vc4_hdmi_audio_prepare(struct snd_pcm_substream *substream,
+ 				  struct snd_soc_dai *dai)
+@@ -1595,8 +1612,13 @@ static int vc4_hdmi_audio_trigger(struct snd_pcm_substream *substream, int cmd,
+ 					 VC4_HD_MAI_CTL_WHOLSMP |
+ 					 VC4_HD_MAI_CTL_CHALIGN |
+ 					 VC4_HD_MAI_CTL_ENABLE);
++		/* setup timer to call dlate_callback to check fifo errors */
++		timer_setup(&vc4_hdmi->dlate_timer, dlate_callback, 0);
++		mod_timer(&vc4_hdmi->dlate_timer, jiffies + msecs_to_jiffies(TIMEOUT));
+ 		break;
+ 	case SNDRV_PCM_TRIGGER_STOP:
++		del_timer(&vc4_hdmi->dlate_timer);
++
+ 		HDMI_WRITE(HDMI_MAI_CTL,
+ 			   VC4_HD_MAI_CTL_DLATE |
+ 			   VC4_HD_MAI_CTL_ERRORE |
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.h b/drivers/gpu/drm/vc4/vc4_hdmi.h
+index 9a2e8f8081cd4..67e0e54c1f6b5 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.h
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.h
+@@ -185,6 +185,8 @@ struct vc4_hdmi {
+ 	struct debugfs_regset32 phy_regset;
+ 	struct debugfs_regset32 ram_regset;
+ 	struct debugfs_regset32 rm_regset;
++
++	struct timer_list dlate_timer;
+ };
+ 
+ static inline struct vc4_hdmi *
