@@ -1,0 +1,238 @@
+From f9344e0eac1dae3911e32d63fecf80fc90180d8a Mon Sep 17 00:00:00 2001
+From: Dave Stevenson <dave.stevenson@raspberrypi.com>
+Date: Wed, 2 Dec 2020 18:36:24 +0000
+Subject: [PATCH 1/4] drm/vc4: Add HDR metadata property to the VC5 HDMI
+ connectors
+
+Now that we can export deeper colour depths, add in the signalling
+for HDR metadata.
+
+Signed-off-by: Dave Stevenson <dave.stevenson@raspberrypi.com>
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 28 ++++++++++++++++++++++++++++
+ drivers/gpu/drm/vc4/vc4_hdmi.h |  3 +++
+ 2 files changed, 31 insertions(+)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 0c8c3aae6fa51..63547e3acb4d0 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -613,6 +613,10 @@ static int vc4_hdmi_connector_init(struct drm_device *dev,
+ 	connector->doublescan_allowed = 0;
+ 	connector->stereo_allowed = 1;
+ 
++	if (vc4_hdmi->variant->supports_hdr)
++		drm_object_attach_property(&connector->base,
++			connector->dev->mode_config.hdr_output_metadata_property, 0);
++
+ 	drm_connector_attach_encoder(connector, encoder);
+ 
+ 	return 0;
+@@ -755,6 +759,25 @@ static void vc4_hdmi_set_audio_infoframe(struct drm_encoder *encoder)
+ 	vc4_hdmi_write_infoframe(encoder, &frame);
+ }
+ 
++static void vc4_hdmi_set_hdr_infoframe(struct drm_encoder *encoder)
++{
++	struct vc4_hdmi *vc4_hdmi = encoder_to_vc4_hdmi(encoder);
++	struct drm_connector *connector = &vc4_hdmi->connector;
++	struct drm_connector_state *conn_state = connector->state;
++	union hdmi_infoframe frame;
++
++	if (!vc4_hdmi->variant->supports_hdr)
++		return;
++
++	if (!conn_state->hdr_output_metadata)
++		return;
++
++	if (drm_hdmi_infoframe_set_hdr_metadata(&frame.drm, conn_state))
++		return;
++
++	vc4_hdmi_write_infoframe(encoder, &frame);
++}
++
+ static void vc4_hdmi_set_infoframes(struct drm_encoder *encoder)
+ {
+ 	struct vc4_hdmi *vc4_hdmi = encoder_to_vc4_hdmi(encoder);
+@@ -767,6 +790,8 @@ static void vc4_hdmi_set_infoframes(struct drm_encoder *encoder)
+ 	 */
+ 	if (vc4_hdmi->audio.streaming)
+ 		vc4_hdmi_set_audio_infoframe(encoder);
++
++	vc4_hdmi_set_hdr_infoframe(encoder);
+ }
+ 
+ static void vc4_hdmi_encoder_post_crtc_disable(struct drm_encoder *encoder,
+@@ -2701,6 +2726,7 @@ static const struct vc4_hdmi_variant bcm2835_variant = {
+ 	.phy_rng_enable		= vc4_hdmi_phy_rng_enable,
+ 	.phy_rng_disable	= vc4_hdmi_phy_rng_disable,
+ 	.channel_map		= vc4_hdmi_channel_map,
++	.supports_hdr		= false,
+ };
+ 
+ static const struct vc4_hdmi_variant bcm2711_hdmi0_variant = {
+@@ -2729,6 +2755,7 @@ static const struct vc4_hdmi_variant bcm2711_hdmi0_variant = {
+ 	.phy_rng_enable		= vc5_hdmi_phy_rng_enable,
+ 	.phy_rng_disable	= vc5_hdmi_phy_rng_disable,
+ 	.channel_map		= vc5_hdmi_channel_map,
++	.supports_hdr		= true,
+ };
+ 
+ static const struct vc4_hdmi_variant bcm2711_hdmi1_variant = {
+@@ -2757,6 +2784,7 @@ static const struct vc4_hdmi_variant bcm2711_hdmi1_variant = {
+ 	.phy_rng_enable		= vc5_hdmi_phy_rng_enable,
+ 	.phy_rng_disable	= vc5_hdmi_phy_rng_disable,
+ 	.channel_map		= vc5_hdmi_channel_map,
++	.supports_hdr		= true,
+ };
+ 
+ static const struct of_device_id vc4_hdmi_dt_match[] = {
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.h b/drivers/gpu/drm/vc4/vc4_hdmi.h
+index 67e0e54c1f6b5..89222e430446a 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.h
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.h
+@@ -102,6 +102,9 @@ struct vc4_hdmi_variant {
+ 
+ 	/* Callback to get channel map */
+ 	u32 (*channel_map)(struct vc4_hdmi *vc4_hdmi, u32 channel_mask);
++
++	/* Enables HDR metadata */
++	bool supports_hdr;
+ };
+ 
+ /* HDMI audio information */
+-- 
+2.20.1
+
+
+From 571453b3d18d555be0a18236f022fd7400aa2b7c Mon Sep 17 00:00:00 2001
+From: Dom Cobley <popcornmix@gmail.com>
+Date: Thu, 4 Feb 2021 18:47:52 +0000
+Subject: [PATCH 2/4] hdmi: Fix HDMI_STATIC_METADATA_TYPE1
+
+Signed-off-by: Dom Cobley <popcornmix@gmail.com>
+---
+ include/linux/hdmi.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/hdmi.h b/include/linux/hdmi.h
+index 9850d59d6f1c0..c8ec982ff4984 100644
+--- a/include/linux/hdmi.h
++++ b/include/linux/hdmi.h
+@@ -156,7 +156,7 @@ enum hdmi_content_type {
+ };
+ 
+ enum hdmi_metadata_type {
+-	HDMI_STATIC_METADATA_TYPE1 = 1,
++	HDMI_STATIC_METADATA_TYPE1 = 0,
+ };
+ 
+ enum hdmi_eotf {
+-- 
+2.20.1
+
+
+From db45fcb64977048366592eda6ca1b0280f7551c4 Mon Sep 17 00:00:00 2001
+From: Dom Cobley <popcornmix@gmail.com>
+Date: Fri, 5 Feb 2021 14:07:12 +0000
+Subject: [PATCH 3/4] drm/vc4: Add connector check to trigger mode_change when
+ hdr metadata changes
+
+Signed-off-by: Dom Cobley <popcornmix@gmail.com>
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 41 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 63547e3acb4d0..6cfaddb82f1ce 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -527,6 +527,46 @@ static int vc4_hdmi_connector_get_modes(struct drm_connector *connector)
+ 	return ret;
+ }
+ 
++static bool hdr_metadata_equal(const struct drm_connector_state *old_state,
++			       const struct drm_connector_state *new_state)
++{
++	struct drm_property_blob *old_blob = old_state->hdr_output_metadata;
++	struct drm_property_blob *new_blob = new_state->hdr_output_metadata;
++
++	if (!old_blob || !new_blob)
++		return old_blob == new_blob;
++
++	if (old_blob->length != new_blob->length)
++		return false;
++
++	return !memcmp(old_blob->data, new_blob->data, old_blob->length);
++}
++
++static int vc4_hdmi_connector_atomic_check(struct drm_connector *connector,
++					  struct drm_atomic_state *state)
++{
++	struct drm_connector_state *old_state =
++		drm_atomic_get_old_connector_state(state, connector);
++	struct drm_connector_state *new_state =
++		drm_atomic_get_new_connector_state(state, connector);
++	struct drm_crtc *crtc = new_state->crtc;
++	struct drm_crtc_state *crtc_state;
++
++	if (!crtc) {
++		return 0;
++	}
++
++	if (!hdr_metadata_equal(old_state, new_state)) {
++		crtc_state = drm_atomic_get_crtc_state(state, crtc);
++		if (IS_ERR(crtc_state))
++			return PTR_ERR(crtc_state);
++
++		crtc_state->mode_changed = true;
++	}
++
++	return 0;
++}
++
+ static void vc4_hdmi_connector_reset(struct drm_connector *connector)
+ {
+ 	struct vc4_hdmi_connector_state *old_state =
+@@ -576,6 +616,7 @@ static const struct drm_connector_funcs vc4_hdmi_connector_funcs = {
+ 
+ static const struct drm_connector_helper_funcs vc4_hdmi_connector_helper_funcs = {
+ 	.get_modes = vc4_hdmi_connector_get_modes,
++	.atomic_check = vc4_hdmi_connector_atomic_check,
+ };
+ 
+ static int vc4_hdmi_connector_init(struct drm_device *dev,
+-- 
+2.20.1
+
+
+From 187f466caa42c595379c8782df4f9df1d599e334 Mon Sep 17 00:00:00 2001
+From: Dom Cobley <popcornmix@gmail.com>
+Date: Fri, 5 Feb 2021 14:09:28 +0000
+Subject: [PATCH 4/4] drm/vc4: temp: Add logging for infoframe writes
+
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 6cfaddb82f1ce..e96b23627dea5 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -700,6 +700,13 @@ static void vc4_hdmi_write_infoframe(struct drm_encoder *encoder,
+ 	if (len < 0)
+ 		return;
+ 
++	DRM_ERROR("vc4_hdmi_write_infoframe: id:%d len:%d %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x %02x", packet_id, len,
++		buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],
++		buffer[8],buffer[9],buffer[10],buffer[11],buffer[12],buffer[13],buffer[14],buffer[15],
++		buffer[16],buffer[17],buffer[18],buffer[19],buffer[20],buffer[21],buffer[22],buffer[23],
++		buffer[24],buffer[25],buffer[26],buffer[27],buffer[28],buffer[29],buffer[30],buffer[31]
++	);
++
+ 	ret = vc4_hdmi_stop_packet(encoder, frame->any.type);
+ 	if (ret) {
+ 		DRM_ERROR("Failed to wait for infoframe to go idle: %d\n", ret);
+-- 
+2.20.1
+
