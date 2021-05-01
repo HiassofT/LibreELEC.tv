@@ -1,0 +1,468 @@
+From 435977b202953d65b1e7f4547e9c7feb29ed9763 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime@cerno.tech>
+Date: Thu, 29 Apr 2021 14:24:39 +0200
+Subject: [PATCH 1/6] drm/vc4: hdmi: Fix error path of hpd-gpios
+
+If the of_get_named_gpio_flags call fails in vc4_hdmi_bind, we jump to
+the err_unprepare_hsm label. That label will then call
+pm_runtime_disable and put_device on the DDC device.
+
+We just retrieved the DDC device, so the latter is definitely justified.
+However at that point we still haven't called pm_runtime_enable, so the
+call to pm_runtime_disable is not supposed to be there.
+
+Fixes: 10ee275cb12f ("drm/vc4: prepare for CEC support")
+Signed-off-by: Maxime Ripard <maxime@cerno.tech>
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 0a786803c3203..72fd1084e5e51 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -2707,7 +2707,7 @@ static int vc4_hdmi_bind(struct device *dev, struct device *master, void *data)
+ 							     &hpd_gpio_flags);
+ 		if (vc4_hdmi->hpd_gpio < 0) {
+ 			ret = vc4_hdmi->hpd_gpio;
+-			goto err_unprepare_hsm;
++			goto err_put_ddc;
+ 		}
+ 
+ 		vc4_hdmi->hpd_active_low = hpd_gpio_flags & OF_GPIO_ACTIVE_LOW;
+@@ -2764,8 +2764,8 @@ static int vc4_hdmi_bind(struct device *dev, struct device *master, void *data)
+ 	vc4_hdmi_connector_destroy(&vc4_hdmi->connector);
+ err_destroy_encoder:
+ 	drm_encoder_cleanup(encoder);
+-err_unprepare_hsm:
+ 	pm_runtime_disable(dev);
++err_put_ddc:
+ 	put_device(&vc4_hdmi->ddc->dev);
+ 
+ 	return ret;
+
+From 1a39b7dd3de74f34b8512cb33bf370cc317d7e93 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime@cerno.tech>
+Date: Thu, 29 Apr 2021 15:27:14 +0200
+Subject: [PATCH 2/6] drm/vc4: hdmi: Convert to gpiod
+
+The new gpiod interface takes care of parsing the GPIO flags and to
+return the logical value when accessing an active-low GPIO, so switching
+to it simplifies a lot the driver.
+
+Signed-off-by: Maxime Ripard <maxime@cerno.tech>
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 24 +++++++-----------------
+ drivers/gpu/drm/vc4/vc4_hdmi.h |  3 +--
+ 2 files changed, 8 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 72fd1084e5e51..396365412df15 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -479,10 +479,9 @@ vc4_hdmi_connector_detect(struct drm_connector *connector, bool force)
+ 	struct vc4_hdmi *vc4_hdmi = connector_to_vc4_hdmi(connector);
+ 	bool connected = false;
+ 
+-	if (vc4_hdmi->hpd_gpio) {
+-		if (gpio_get_value_cansleep(vc4_hdmi->hpd_gpio) ^
+-		    vc4_hdmi->hpd_active_low)
+-			connected = true;
++	if (vc4_hdmi->hpd_gpio &&
++	    gpiod_get_value_cansleep(vc4_hdmi->hpd_gpio)) {
++		connected = true;
+ 	} else if (drm_probe_ddc(vc4_hdmi->ddc)) {
+ 		connected = true;
+ 	} else if (HDMI_READ(HDMI_HOTPLUG) & VC4_HDMI_HOTPLUG_CONNECTED) {
+@@ -2661,7 +2660,6 @@ static int vc4_hdmi_bind(struct device *dev, struct device *master, void *data)
+ 	struct vc4_hdmi *vc4_hdmi;
+ 	struct drm_encoder *encoder;
+ 	struct device_node *ddc_node;
+-	u32 value;
+ 	int ret;
+ 
+ 	vc4_hdmi = devm_kzalloc(dev, sizeof(*vc4_hdmi), GFP_KERNEL);
+@@ -2699,18 +2697,10 @@ static int vc4_hdmi_bind(struct device *dev, struct device *master, void *data)
+ 	/* Only use the GPIO HPD pin if present in the DT, otherwise
+ 	 * we'll use the HDMI core's register.
+ 	 */
+-	if (of_find_property(dev->of_node, "hpd-gpios", &value)) {
+-		enum of_gpio_flags hpd_gpio_flags;
+-
+-		vc4_hdmi->hpd_gpio = of_get_named_gpio_flags(dev->of_node,
+-							     "hpd-gpios", 0,
+-							     &hpd_gpio_flags);
+-		if (vc4_hdmi->hpd_gpio < 0) {
+-			ret = vc4_hdmi->hpd_gpio;
+-			goto err_put_ddc;
+-		}
+-
+-		vc4_hdmi->hpd_active_low = hpd_gpio_flags & OF_GPIO_ACTIVE_LOW;
++	vc4_hdmi->hpd_gpio = devm_gpiod_get_optional(dev, "hpd", GPIOD_IN);
++	if (IS_ERR(vc4_hdmi->hpd_gpio)) {
++		ret = PTR_ERR(vc4_hdmi->hpd_gpio);
++		goto err_put_ddc;
+ 	}
+ 
+ 	vc4_hdmi->disable_wifi_frequencies =
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.h b/drivers/gpu/drm/vc4/vc4_hdmi.h
+index 23e8cfc22c4dc..e43b05b1333fd 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.h
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.h
+@@ -151,8 +151,7 @@ struct vc4_hdmi {
+ 	/* VC5 Only */
+ 	void __iomem *rm_regs;
+ 
+-	int hpd_gpio;
+-	bool hpd_active_low;
++	struct gpio_desc *hpd_gpio;
+ 
+ 	/*
+ 	 * On some systems (like the RPi4), some modes are in the same
+
+From c5e976631e55e0a9341b50ad05009b66d8fd77d9 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime@cerno.tech>
+Date: Thu, 29 Apr 2021 11:08:52 +0200
+Subject: [PATCH 3/6] drm/vc4: hdmi: Rely on interrupts to handle hotplug
+
+DRM currently polls for the HDMI connector status every 10s, which can
+be an issue when we connect/disconnect a display quickly or the device
+on the other end only issues a hotplug pulse (for example on EDID
+change).
+
+Switch the driver to rely on the internal controller logic for the
+BCM2711/RPi4, and the hotplug GPIO for the older SoCs.
+
+Signed-off-by: Maxime Ripard <maxime@cerno.tech>
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 58 ++++++++++++++++++++++++++++++++--
+ 1 file changed, 55 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 396365412df15..51fa4d6e6dd97 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -656,9 +656,7 @@ static int vc4_hdmi_connector_init(struct drm_device *dev,
+ 	drm_connector_attach_tv_margin_properties(connector);
+ 	drm_connector_attach_max_bpc_property(connector, 8, 12);
+ 
+-	connector->polled = (DRM_CONNECTOR_POLL_CONNECT |
+-			     DRM_CONNECTOR_POLL_DISCONNECT);
+-
++	connector->polled = DRM_CONNECTOR_POLL_HPD;
+ 	connector->interlace_allowed = 1;
+ 	connector->doublescan_allowed = 0;
+ 	connector->stereo_allowed = 1;
+@@ -2144,6 +2142,56 @@ static int vc4_hdmi_audio_init(struct vc4_hdmi *vc4_hdmi)
+ 
+ }
+ 
++static irqreturn_t vc4_hdmi_hpd_irq_thread(int irq, void *priv)
++{
++	struct vc4_hdmi *vc4_hdmi = priv;
++	struct drm_device *dev = vc4_hdmi->connector.dev;
++
++	if (dev)
++		drm_kms_helper_hotplug_event(dev);
++
++	return IRQ_HANDLED;
++}
++
++static int vc4_hdmi_hotplug_init(struct vc4_hdmi *vc4_hdmi)
++{
++	struct platform_device *pdev = vc4_hdmi->pdev;
++	struct device *dev = &pdev->dev;
++	int ret;
++
++	if (vc4_hdmi->variant->external_irq_controller) {
++		ret = devm_request_threaded_irq(dev,
++						platform_get_irq_byname(pdev, "hpd-connected"),
++						NULL,
++						vc4_hdmi_hpd_irq_thread, IRQF_ONESHOT,
++						"vc4 hdmi hpd connected", vc4_hdmi);
++		if (ret)
++			return ret;
++
++		ret = devm_request_threaded_irq(dev,
++						platform_get_irq_byname(pdev, "hpd-removed"),
++						NULL,
++						vc4_hdmi_hpd_irq_thread, IRQF_ONESHOT,
++						"vc4 hdmi hpd disconnected", vc4_hdmi);
++		if (ret)
++			return ret;
++	} else if (vc4_hdmi->hpd_gpio) {
++
++		int irq = gpiod_to_irq(vc4_hdmi->hpd_gpio);
++		if (irq < 0)
++			return irq;
++
++		ret = devm_request_threaded_irq(dev, irq,
++						NULL, vc4_hdmi_hpd_irq_thread,
++						IRQF_ONESHOT | IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
++						"vc4 hdmi hpd", vc4_hdmi);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
+ #ifdef CONFIG_DRM_VC4_HDMI_CEC
+ static irqreturn_t vc4_cec_irq_handler_rx_thread(int irq, void *priv)
+ {
+@@ -2734,6 +2782,10 @@ static int vc4_hdmi_bind(struct device *dev, struct device *master, void *data)
+ 	if (ret)
+ 		goto err_destroy_encoder;
+ 
++	ret = vc4_hdmi_hotplug_init(vc4_hdmi);
++	if (ret)
++		goto err_destroy_conn;
++
+ 	ret = vc4_hdmi_cec_init(vc4_hdmi);
+ 	if (ret)
+ 		goto err_destroy_conn;
+
+From 99f9ddd99b758a8b713ae07b675f1d64ebb7181d Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime@cerno.tech>
+Date: Thu, 29 Apr 2021 21:58:27 +0200
+Subject: [PATCH 4/6] drm/vc4: Rework encoder hook prototypes
+
+It looks like with the 5.10 kernel, when the CRTC is brought back up
+after a disconnect/reconnect of the HDMI cable, the encoder->crtc and
+connector_state->best_encoder pointers aren't filled, preventing us from
+following them and doing our hooks.
+
+connector_state->best_encoder can be worked around, but since we're
+calling those hooks from the crtc driver, we can just pass the crtc
+through the function.
+
+Signed-off-by: Maxime Ripard <maxime@cerno.tech>
+---
+ drivers/gpu/drm/vc4/vc4_crtc.c | 10 +++++-----
+ drivers/gpu/drm/vc4/vc4_drv.h  | 10 +++++-----
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 15 ++++++++++-----
+ 3 files changed, 20 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_crtc.c b/drivers/gpu/drm/vc4/vc4_crtc.c
+index d6a9322462405..38e025ed05e29 100644
+--- a/drivers/gpu/drm/vc4/vc4_crtc.c
++++ b/drivers/gpu/drm/vc4/vc4_crtc.c
+@@ -476,13 +476,13 @@ static int vc4_crtc_disable(struct drm_crtc *crtc,
+ 	mdelay(20);
+ 
+ 	if (vc4_encoder && vc4_encoder->post_crtc_disable)
+-		vc4_encoder->post_crtc_disable(encoder, state);
++		vc4_encoder->post_crtc_disable(crtc, encoder, state);
+ 
+ 	vc4_crtc_pixelvalve_reset(crtc);
+ 	vc4_hvs_stop_channel(dev, channel);
+ 
+ 	if (vc4_encoder && vc4_encoder->post_crtc_powerdown)
+-		vc4_encoder->post_crtc_powerdown(encoder, state);
++		vc4_encoder->post_crtc_powerdown(crtc, encoder, state);
+ 
+ 	return 0;
+ }
+@@ -559,14 +559,14 @@ static void vc4_crtc_atomic_enable(struct drm_crtc *crtc,
+ 	vc4_hvs_atomic_enable(crtc, state);
+ 
+ 	if (vc4_encoder->pre_crtc_configure)
+-		vc4_encoder->pre_crtc_configure(encoder, state);
++		vc4_encoder->pre_crtc_configure(crtc, encoder, state);
+ 
+ 	vc4_crtc_config_pv(crtc);
+ 
+ 	CRTC_WRITE(PV_CONTROL, CRTC_READ(PV_CONTROL) | PV_CONTROL_EN);
+ 
+ 	if (vc4_encoder->pre_crtc_enable)
+-		vc4_encoder->pre_crtc_enable(encoder, state);
++		vc4_encoder->pre_crtc_enable(crtc, encoder, state);
+ 
+ 	/* When feeding the transposer block the pixelvalve is unneeded and
+ 	 * should not be enabled.
+@@ -575,7 +575,7 @@ static void vc4_crtc_atomic_enable(struct drm_crtc *crtc,
+ 		   CRTC_READ(PV_V_CONTROL) | PV_VCONTROL_VIDEN);
+ 
+ 	if (vc4_encoder->post_crtc_enable)
+-		vc4_encoder->post_crtc_enable(encoder, state);
++		vc4_encoder->post_crtc_enable(crtc, encoder, state);
+ }
+ 
+ static enum drm_mode_status vc4_crtc_mode_valid(struct drm_crtc *crtc,
+diff --git a/drivers/gpu/drm/vc4/vc4_drv.h b/drivers/gpu/drm/vc4/vc4_drv.h
+index ff4e71f79e494..bbae31c156bee 100644
+--- a/drivers/gpu/drm/vc4/vc4_drv.h
++++ b/drivers/gpu/drm/vc4/vc4_drv.h
+@@ -458,12 +458,12 @@ struct vc4_encoder {
+ 	enum vc4_encoder_type type;
+ 	u32 clock_select;
+ 
+-	void (*pre_crtc_configure)(struct drm_encoder *encoder, struct drm_atomic_state *state);
+-	void (*pre_crtc_enable)(struct drm_encoder *encoder, struct drm_atomic_state *state);
+-	void (*post_crtc_enable)(struct drm_encoder *encoder, struct drm_atomic_state *state);
++	void (*pre_crtc_configure)(struct drm_crtc *crtc, struct drm_encoder *encoder, struct drm_atomic_state *state);
++	void (*pre_crtc_enable)(struct drm_crtc *crtc, struct drm_encoder *encoder, struct drm_atomic_state *state);
++	void (*post_crtc_enable)(struct drm_crtc *crtc, struct drm_encoder *encoder, struct drm_atomic_state *state);
+ 
+-	void (*post_crtc_disable)(struct drm_encoder *encoder, struct drm_atomic_state *state);
+-	void (*post_crtc_powerdown)(struct drm_encoder *encoder, struct drm_atomic_state *state);
++	void (*post_crtc_disable)(struct drm_crtc *crtc, struct drm_encoder *encoder, struct drm_atomic_state *state);
++	void (*post_crtc_powerdown)(struct drm_crtc *crtc, struct drm_encoder *encoder, struct drm_atomic_state *state);
+ };
+ 
+ static inline struct vc4_encoder *
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 51fa4d6e6dd97..a4e2b9a0bc351 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -899,7 +899,8 @@ static void vc4_hdmi_disable_scrambling(struct drm_encoder *encoder)
+ 	drm_scdc_set_high_tmds_clock_ratio(vc4_hdmi->ddc, false);
+ }
+ 
+-static void vc4_hdmi_encoder_post_crtc_disable(struct drm_encoder *encoder,
++static void vc4_hdmi_encoder_post_crtc_disable(struct drm_crtc *crtc,
++					       struct drm_encoder *encoder,
+ 					       struct drm_atomic_state *state)
+ {
+ 	struct vc4_hdmi *vc4_hdmi = encoder_to_vc4_hdmi(encoder);
+@@ -915,7 +916,8 @@ static void vc4_hdmi_encoder_post_crtc_disable(struct drm_encoder *encoder,
+ 	vc4_hdmi_disable_scrambling(encoder);
+ }
+ 
+-static void vc4_hdmi_encoder_post_crtc_powerdown(struct drm_encoder *encoder,
++static void vc4_hdmi_encoder_post_crtc_powerdown(struct drm_crtc *crtc,
++						 struct drm_encoder *encoder,
+ 						 struct drm_atomic_state *state)
+ {
+ 	struct vc4_hdmi *vc4_hdmi = encoder_to_vc4_hdmi(encoder);
+@@ -1188,7 +1190,8 @@ vc4_hdmi_encoder_get_connector_state(struct drm_encoder *encoder,
+ 	return NULL;
+ }
+ 
+-static void vc4_hdmi_encoder_pre_crtc_configure(struct drm_encoder *encoder,
++static void vc4_hdmi_encoder_pre_crtc_configure(struct drm_crtc *crtc,
++						struct drm_encoder *encoder,
+ 						struct drm_atomic_state *state)
+ {
+ 	struct drm_connector_state *conn_state =
+@@ -1291,7 +1294,8 @@ static void vc4_hdmi_encoder_pre_crtc_configure(struct drm_encoder *encoder,
+ 		vc4_hdmi->variant->set_timings(vc4_hdmi, conn_state, mode);
+ }
+ 
+-static void vc4_hdmi_encoder_pre_crtc_enable(struct drm_encoder *encoder,
++static void vc4_hdmi_encoder_pre_crtc_enable(struct drm_crtc *crtc,
++					     struct drm_encoder *encoder,
+ 					     struct drm_atomic_state *state)
+ {
+ 	struct drm_display_mode *mode = &encoder->crtc->state->adjusted_mode;
+@@ -1314,7 +1318,8 @@ static void vc4_hdmi_encoder_pre_crtc_enable(struct drm_encoder *encoder,
+ 	HDMI_WRITE(HDMI_FIFO_CTL, VC4_HDMI_FIFO_CTL_MASTER_SLAVE_N);
+ }
+ 
+-static void vc4_hdmi_encoder_post_crtc_enable(struct drm_encoder *encoder,
++static void vc4_hdmi_encoder_post_crtc_enable(struct drm_crtc *crtc,
++					      struct drm_encoder *encoder,
+ 					      struct drm_atomic_state *state)
+ {
+ 	struct drm_display_mode *mode = &encoder->crtc->state->adjusted_mode;
+
+From 9c44ffa4cc0080415948d32e96a9b9d189936332 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime@cerno.tech>
+Date: Thu, 29 Apr 2021 21:58:27 +0200
+Subject: [PATCH 5/6] drm/vc4: hdmi: Simplify the connector state retrieval
+
+When we have the entire DRM state, retrieving the connector state only
+requires the drm_connector pointer. Fortunately for us, we have
+allocated it as a part of the vc4_hdmi structure, so we can retrieve get
+a pointer by simply accessing our field in that structure.
+
+Signed-off-by: Maxime Ripard <maxime@cerno.tech>
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 21 +++------------------
+ 1 file changed, 3 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index a4e2b9a0bc351..f0b61c0d125f3 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -1174,32 +1174,17 @@ static void vc4_hdmi_recenter_fifo(struct vc4_hdmi *vc4_hdmi)
+ 		  "VC4_HDMI_FIFO_CTL_RECENTER_DONE");
+ }
+ 
+-static struct drm_connector_state *
+-vc4_hdmi_encoder_get_connector_state(struct drm_encoder *encoder,
+-				     struct drm_atomic_state *state)
+-{
+-	struct drm_connector_state *conn_state;
+-	struct drm_connector *connector;
+-	unsigned int i;
+-
+-	for_each_new_connector_in_state(state, connector, conn_state, i) {
+-		if (conn_state->best_encoder == encoder)
+-			return conn_state;
+-	}
+-
+-	return NULL;
+-}
+-
+ static void vc4_hdmi_encoder_pre_crtc_configure(struct drm_crtc *crtc,
+ 						struct drm_encoder *encoder,
+ 						struct drm_atomic_state *state)
+ {
++	struct vc4_hdmi *vc4_hdmi = encoder_to_vc4_hdmi(encoder);
++	struct drm_connector *connector = &vc4_hdmi->connector;
+ 	struct drm_connector_state *conn_state =
+-		vc4_hdmi_encoder_get_connector_state(encoder, state);
++		drm_atomic_get_new_connector_state(state, connector);
+ 	struct vc4_hdmi_connector_state *vc4_conn_state =
+ 		conn_state_to_vc4_hdmi_conn_state(conn_state);
+ 	struct drm_display_mode *mode = &encoder->crtc->state->adjusted_mode;
+-	struct vc4_hdmi *vc4_hdmi = encoder_to_vc4_hdmi(encoder);
+ 	unsigned long bvb_rate, pixel_rate, hsm_rate;
+ 	int ret;
+ 
+
+From a0b2234afcb1c2d59ba7764f9f10ee468b336999 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime@cerno.tech>
+Date: Thu, 29 Apr 2021 22:04:27 +0200
+Subject: [PATCH 6/6] drm/vc4: hdmi: Retrieve the crtc state through using the
+ drm_crtc pointer
+
+In the 5.10 kernel, it looks like the encoder->crtc pointer is set to
+null after a disconnect/reconnect cycle which can lead to null pointer
+dereference.
+
+We have access to the crtc pointer through the arguments though, and
+thus we can retrieve its state using the usual drm accessors.
+
+Signed-off-by: Maxime Ripard <maxime@cerno.tech>
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index f0b61c0d125f3..a74d1008ee833 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -1184,7 +1184,9 @@ static void vc4_hdmi_encoder_pre_crtc_configure(struct drm_crtc *crtc,
+ 		drm_atomic_get_new_connector_state(state, connector);
+ 	struct vc4_hdmi_connector_state *vc4_conn_state =
+ 		conn_state_to_vc4_hdmi_conn_state(conn_state);
+-	struct drm_display_mode *mode = &encoder->crtc->state->adjusted_mode;
++	struct drm_crtc_state *crtc_state =
++		drm_atomic_get_new_crtc_state(state, crtc);
++	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
+ 	unsigned long bvb_rate, pixel_rate, hsm_rate;
+ 	int ret;
+ 
+@@ -1307,7 +1309,9 @@ static void vc4_hdmi_encoder_post_crtc_enable(struct drm_crtc *crtc,
+ 					      struct drm_encoder *encoder,
+ 					      struct drm_atomic_state *state)
+ {
+-	struct drm_display_mode *mode = &encoder->crtc->state->adjusted_mode;
++	struct drm_crtc_state *crtc_state =
++		drm_atomic_get_new_crtc_state(state, crtc);
++	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
+ 	struct vc4_hdmi *vc4_hdmi = encoder_to_vc4_hdmi(encoder);
+ 	struct vc4_hdmi_encoder *vc4_encoder = to_vc4_hdmi_encoder(encoder);
+ 	bool hsync_pos = mode->flags & DRM_MODE_FLAG_PHSYNC;
