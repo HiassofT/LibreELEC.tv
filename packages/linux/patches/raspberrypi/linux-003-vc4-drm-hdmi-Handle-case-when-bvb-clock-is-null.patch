@@ -1,0 +1,52 @@
+From 877d1dd1387831199f2a212725c2e7cf42f6f489 Mon Sep 17 00:00:00 2001
+From: Dom Cobley <popcornmix@gmail.com>
+Date: Wed, 21 Apr 2021 15:15:42 +0100
+Subject: [PATCH 3/3] vc4/drm: hdmi: Handle case when bvb clock is null
+
+Pi2/3 have no bvb clock but want the other clocks to remain enabled here
+
+See: https://github.com/raspberrypi/linux/issues/4299
+Signed-off-by: Dom Cobley <popcornmix@gmail.com>
+---
+ drivers/gpu/drm/vc4/vc4_hdmi.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 1872b3a2bb519..22470ebd871f9 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -852,7 +852,8 @@ static void vc4_hdmi_encoder_post_crtc_powerdown(struct drm_encoder *encoder,
+ 		   HDMI_READ(HDMI_VID_CTL) & ~VC4_HD_VID_CTL_ENABLE);
+ 
+ 	clk_disable_unprepare(vc4_hdmi->pixel_bvb_clock);
+-	clk_request_done(vc4_hdmi->bvb_req);
++	if (vc4_hdmi->bvb_req)
++		clk_request_done(vc4_hdmi->bvb_req);
+ 	clk_disable_unprepare(vc4_hdmi->hsm_clock);
+ 	clk_request_done(vc4_hdmi->hsm_req);
+ 	clk_disable_unprepare(vc4_hdmi->pixel_clock);
+@@ -1178,8 +1179,9 @@ static void vc4_hdmi_encoder_pre_crtc_configure(struct drm_encoder *encoder,
+ 	 * FIXME: When the pixel freq is 594MHz (4k60), this needs to be setup
+ 	 * at 300MHz.
+ 	 */
+-	vc4_hdmi->bvb_req = clk_request_start(vc4_hdmi->pixel_bvb_clock,
+-					      (hsm_rate > VC4_HSM_MID_CLOCK ? 150000000 : 75000000));
++	if (vc4_hdmi->pixel_bvb_clock)
++		vc4_hdmi->bvb_req = clk_request_start(vc4_hdmi->pixel_bvb_clock,
++						      (hsm_rate > VC4_HSM_MID_CLOCK ? 150000000 : 75000000));
+ 	if (IS_ERR(vc4_hdmi->bvb_req)) {
+ 		DRM_ERROR("Failed to set pixel bvb clock rate: %ld\n", PTR_ERR(vc4_hdmi->bvb_req));
+ 		clk_request_done(vc4_hdmi->hsm_req);
+@@ -1191,7 +1193,8 @@ static void vc4_hdmi_encoder_pre_crtc_configure(struct drm_encoder *encoder,
+ 	ret = clk_prepare_enable(vc4_hdmi->pixel_bvb_clock);
+ 	if (ret) {
+ 		DRM_ERROR("Failed to turn on pixel bvb clock: %d\n", ret);
+-		clk_request_done(vc4_hdmi->bvb_req);
++		if (vc4_hdmi->bvb_req)
++			clk_request_done(vc4_hdmi->bvb_req);
+ 		clk_request_done(vc4_hdmi->hsm_req);
+ 		clk_disable_unprepare(vc4_hdmi->hsm_clock);
+ 		clk_disable_unprepare(vc4_hdmi->pixel_clock);
+-- 
+2.30.2
+
