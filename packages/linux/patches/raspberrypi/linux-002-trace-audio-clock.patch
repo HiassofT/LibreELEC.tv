@@ -1,0 +1,32 @@
+diff --git a/drivers/gpu/drm/vc4/vc4_hdmi.c b/drivers/gpu/drm/vc4/vc4_hdmi.c
+index 22470ebd871f9..38187bddea4d5 100644
+--- a/drivers/gpu/drm/vc4/vc4_hdmi.c
++++ b/drivers/gpu/drm/vc4/vc4_hdmi.c
+@@ -845,6 +845,8 @@ static void vc4_hdmi_encoder_post_crtc_powerdown(struct drm_encoder *encoder,
+ 	struct vc4_hdmi *vc4_hdmi = encoder_to_vc4_hdmi(encoder);
+ 	int ret;
+ 
++	dev_info(&vc4_hdmi->pdev->dev, "HSM CLOCK: disable-unprepare in post_crtc_powerdown");
++
+ 	if (vc4_hdmi->variant->phy_disable)
+ 		vc4_hdmi->variant->phy_disable(vc4_hdmi);
+ 
+@@ -1173,6 +1175,8 @@ static void vc4_hdmi_encoder_pre_crtc_configure(struct drm_encoder *encoder,
+ 		return;
+ 	}
+ 
++	dev_info(&vc4_hdmi->pdev->dev, "HSM CLOCK: configured to %ld", hsm_rate);
++
+ 	vc4_hdmi_cec_update_clk_div(vc4_hdmi);
+ 
+ 	/*
+@@ -1411,6 +1415,9 @@ static void vc4_hdmi_audio_set_mai_clock(struct vc4_hdmi *vc4_hdmi)
+ 				     VC4_HD_MAI_SMP_M_SHIFT) + 1,
+ 				    &n, &m);
+ 
++	dev_info(&vc4_hdmi->pdev->dev, "AUDIO CLOCK: clk_rate=%u n=%lu m=%lu",
++		 hsm_clock, n, m);
++
+ 	HDMI_WRITE(HDMI_MAI_SMP,
+ 		   VC4_SET_FIELD(n, VC4_HD_MAI_SMP_N) |
+ 		   VC4_SET_FIELD(m - 1, VC4_HD_MAI_SMP_M));
