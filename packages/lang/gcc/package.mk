@@ -38,7 +38,6 @@ GCC_COMMON_CONFIGURE_OPTS="--target=${TARGET_NAME} \
                            --disable-libatomic \
                            --disable-libitm \
                            --disable-libquadmath \
-                           --disable-libgomp \
                            --disable-libmpx \
                            --disable-libssp \
                            --enable-__cxa_atexit"
@@ -51,6 +50,7 @@ PKG_CONFIGURE_OPTS_BOOTSTRAP="${GCC_COMMON_CONFIGURE_OPTS} \
                               --disable-threads \
                               --without-headers \
                               --with-newlib \
+                              --disable-libgomp \
                               --disable-decimal-float \
                               ${GCC_OPTS}"
 
@@ -61,6 +61,7 @@ PKG_CONFIGURE_OPTS_HOST="${GCC_COMMON_CONFIGURE_OPTS} \
                          --enable-shared \
                          --disable-static \
                          --enable-c99 \
+                         --enable-libgomp \
                          --enable-long-long \
                          --enable-threads=posix \
                          --disable-libstdcxx-pch \
