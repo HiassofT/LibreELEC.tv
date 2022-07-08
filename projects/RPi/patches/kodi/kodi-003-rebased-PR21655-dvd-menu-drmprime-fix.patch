@@ -1,0 +1,76 @@
+From c5dddfc4e6e28b3ed7dcbb0a59d2c7bb3f459482 Mon Sep 17 00:00:00 2001
+From: Dom Cobley <popcornmix@gmail.com>
+Date: Thu, 7 Jul 2022 15:41:58 +0100
+Subject: [PATCH 1/2] CDVDVideoCodecDRMPRIME: Move picture release after
+ avcodec_receive_frame
+
+This matches the code order of DVDVideoCodecFFMPEG and is required
+for working DVD menus
+---
+ .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp       | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
+index 0cdeb66e32..3b7bd9b156 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
+@@ -590,6 +590,13 @@ bool CDVDVideoCodecDRMPRIME::SetPictureParams(VideoPicture* pVideoPicture)
+                            : static_cast<double>(pts) * DVD_TIME_BASE / AV_TIME_BASE;
+   pVideoPicture->dts = DVD_NOPTS_VALUE;
+ 
++
++  if (pVideoPicture->videoBuffer)
++  {
++    pVideoPicture->videoBuffer->Release();
++    pVideoPicture->videoBuffer = nullptr;
++  }
++
+   if (m_pFrame->format == AV_PIX_FMT_DRM_PRIME)
+   {
+     CVideoBufferDRMPRIMEFFmpeg* buffer =
+@@ -889,12 +896,6 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecDRMPRIME::GetPicture(VideoPicture* pVideo
+   if (m_codecControlFlags & DVD_CODEC_CTRL_DRAIN)
+     Drain();
+ 
+-  if (pVideoPicture->videoBuffer)
+-  {
+-    pVideoPicture->videoBuffer->Release();
+-    pVideoPicture->videoBuffer = nullptr;
+-  }
+-
+   if (m_pFilterGraph)
+   {
+     auto ret = ProcessFilterOut();
+-- 
+2.34.1
+
+
+From 6cf3d8af3187b09a07b2c567452df8545833db21 Mon Sep 17 00:00:00 2001
+From: Dom Cobley <popcornmix@gmail.com>
+Date: Thu, 7 Jul 2022 12:31:12 +0100
+Subject: [PATCH 2/2] RendererDRMPRIME: Remove NeedBuffer check for valid fd
+
+This check breaks DVD menus. All calls return true which prevents
+new pictures being released, stalling DVD menus
+---
+ .../VideoRenderers/HwDecRender/RendererDRMPRIME.cpp           | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp
+index e304d601d2..f2ea9d246c 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp
+@@ -179,10 +179,6 @@ bool CRendererDRMPRIME::NeedBuffer(int index)
+   if (m_iLastRenderBuffer == index)
+     return true;
+ 
+-  CVideoBufferDRMPRIME* buffer = dynamic_cast<CVideoBufferDRMPRIME*>(m_buffers[index].videoBuffer);
+-  if (buffer && buffer->m_fb_id)
+-    return true;
+-
+   return false;
+ }
+ 
+-- 
+2.34.1
+
