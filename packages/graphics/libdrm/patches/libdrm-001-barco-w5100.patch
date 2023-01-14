@@ -1,0 +1,51 @@
+From a05abfc8a574105f3a4b0047000b9579bc217c1f Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 15 Jan 2023 00:37:02 +0100
+Subject: [PATCH 1/2] radeon: add PCI ID of Barco MXRT-5600 branded W5100
+
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ radeon/r600_pci_ids.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/radeon/r600_pci_ids.h b/radeon/r600_pci_ids.h
+index a3b2eac8..ffd5b0e8 100644
+--- a/radeon/r600_pci_ids.h
++++ b/radeon/r600_pci_ids.h
+@@ -409,6 +409,7 @@ CHIPSET(0x6641, BONAIRE_6641, BONAIRE)
+ CHIPSET(0x6646, BONAIRE_6646, BONAIRE)
+ CHIPSET(0x6647, BONAIRE_6647, BONAIRE)
+ CHIPSET(0x6649, BONAIRE_6649, BONAIRE)
++CHIPSET(0x664D, BONAIRE_664D, BONAIRE)
+ CHIPSET(0x6650, BONAIRE_6650, BONAIRE)
+ CHIPSET(0x6651, BONAIRE_6651, BONAIRE)
+ CHIPSET(0x6658, BONAIRE_6658, BONAIRE)
+-- 
+2.30.2
+
+
+From 5ceb986ac3f9732ef9dda84e2809e341d07bbfec Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 15 Jan 2023 00:37:35 +0100
+Subject: [PATCH 2/2] amdgpu: add PCI ID of Barco MXRT-5600 branded W5100
+
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ data/amdgpu.ids | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/data/amdgpu.ids b/data/amdgpu.ids
+index 53cf61cb..5a8bb00b 100644
+--- a/data/amdgpu.ids
++++ b/data/amdgpu.ids
+@@ -129,6 +129,7 @@
+ 6647,	00,	AMD Radeon R9 M200X Series
+ 6647,	80,	AMD Radeon R9 M380
+ 6649,	00,	AMD FirePro W5100
++664D,	00,	AMD FirePro W5100
+ 6658,	00,	AMD Radeon R7 200 Series
+ 665C,	00,	AMD Radeon HD 7700 Series
+ 665D,	00,	AMD Radeon R7 200 Series
+-- 
+2.30.2
+
