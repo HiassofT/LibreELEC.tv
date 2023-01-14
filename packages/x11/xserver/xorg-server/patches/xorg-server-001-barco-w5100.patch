@@ -1,0 +1,25 @@
+From 1a4967aaacb03ff7a855635fc6b1108d3340d802 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 15 Jan 2023 00:41:35 +0100
+Subject: [PATCH] dri2: add PCI ID of Barco MXRT-5600 branded W5100
+
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ hw/xfree86/dri2/pci_ids/radeonsi_pci_ids.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hw/xfree86/dri2/pci_ids/radeonsi_pci_ids.h b/hw/xfree86/dri2/pci_ids/radeonsi_pci_ids.h
+index 2ec8a1e24..32dbfd1ef 100644
+--- a/hw/xfree86/dri2/pci_ids/radeonsi_pci_ids.h
++++ b/hw/xfree86/dri2/pci_ids/radeonsi_pci_ids.h
+@@ -81,6 +81,7 @@ CHIPSET(0x6641, BONAIRE_6641, BONAIRE)
+ CHIPSET(0x6646, BONAIRE_6646, BONAIRE)
+ CHIPSET(0x6647, BONAIRE_6647, BONAIRE)
+ CHIPSET(0x6649, BONAIRE_6649, BONAIRE)
++CHIPSET(0x664D, BONAIRE_664D, BONAIRE)
+ CHIPSET(0x6650, BONAIRE_6650, BONAIRE)
+ CHIPSET(0x6651, BONAIRE_6651, BONAIRE)
+ CHIPSET(0x6658, BONAIRE_6658, BONAIRE)
+-- 
+2.30.2
+
