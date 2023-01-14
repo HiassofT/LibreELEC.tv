@@ -1,0 +1,91 @@
+From 5ce581b89b7f690c19fb38f996d6124caeeedfec Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 15 Jan 2023 00:40:02 +0100
+Subject: [PATCH xf86-video-ati] radeon: add PCI ID of Barco MXRT-5600 branded
+ W5100
+
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ src/ati_pciids_gen.h              | 1 +
+ src/pcidb/ati_pciids.csv          | 1 +
+ src/radeon_chipinfo_gen.h         | 1 +
+ src/radeon_chipset_gen.h          | 1 +
+ src/radeon_pci_chipset_gen.h      | 1 +
+ src/radeon_pci_device_match_gen.h | 1 +
+ 6 files changed, 6 insertions(+)
+
+diff --git a/src/ati_pciids_gen.h b/src/ati_pciids_gen.h
+index c6216a54..fc465d20 100644
+--- a/src/ati_pciids_gen.h
++++ b/src/ati_pciids_gen.h
+@@ -708,6 +708,7 @@
+ #define PCI_CHIP_BONAIRE_6646 0x6646
+ #define PCI_CHIP_BONAIRE_6647 0x6647
+ #define PCI_CHIP_BONAIRE_6649 0x6649
++#define PCI_CHIP_BONAIRE_664D 0x664D
+ #define PCI_CHIP_BONAIRE_6650 0x6650
+ #define PCI_CHIP_BONAIRE_6651 0x6651
+ #define PCI_CHIP_BONAIRE_6658 0x6658
+diff --git a/src/pcidb/ati_pciids.csv b/src/pcidb/ati_pciids.csv
+index 59b370aa..376405ab 100644
+--- a/src/pcidb/ati_pciids.csv
++++ b/src/pcidb/ati_pciids.csv
+@@ -709,6 +709,7 @@
+ "0x6646","BONAIRE_6646","BONAIRE",1,,,,,"BONAIRE"
+ "0x6647","BONAIRE_6647","BONAIRE",1,,,,,"BONAIRE"
+ "0x6649","BONAIRE_6649","BONAIRE",,,,,,"BONAIRE"
++"0x664D","BONAIRE_664D","BONAIRE",,,,,,"BONAIRE"
+ "0x6650","BONAIRE_6650","BONAIRE",,,,,,"BONAIRE"
+ "0x6651","BONAIRE_6651","BONAIRE",,,,,,"BONAIRE"
+ "0x6658","BONAIRE_6658","BONAIRE",,,,,,"BONAIRE"
+diff --git a/src/radeon_chipinfo_gen.h b/src/radeon_chipinfo_gen.h
+index 91ef8df8..7ac74829 100644
+--- a/src/radeon_chipinfo_gen.h
++++ b/src/radeon_chipinfo_gen.h
+@@ -628,6 +628,7 @@ static RADEONCardInfo RADEONCards[] = {
+  { 0x6646, CHIP_FAMILY_BONAIRE, 1, 0, 0, 0, 0 },
+  { 0x6647, CHIP_FAMILY_BONAIRE, 1, 0, 0, 0, 0 },
+  { 0x6649, CHIP_FAMILY_BONAIRE, 0, 0, 0, 0, 0 },
++ { 0x664D, CHIP_FAMILY_BONAIRE, 0, 0, 0, 0, 0 },
+  { 0x6650, CHIP_FAMILY_BONAIRE, 0, 0, 0, 0, 0 },
+  { 0x6651, CHIP_FAMILY_BONAIRE, 0, 0, 0, 0, 0 },
+  { 0x6658, CHIP_FAMILY_BONAIRE, 0, 0, 0, 0, 0 },
+diff --git a/src/radeon_chipset_gen.h b/src/radeon_chipset_gen.h
+index 496dee6a..08c2f759 100644
+--- a/src/radeon_chipset_gen.h
++++ b/src/radeon_chipset_gen.h
+@@ -628,6 +628,7 @@ SymTabRec RADEONChipsets[] = {
+   { PCI_CHIP_BONAIRE_6646, "BONAIRE" },
+   { PCI_CHIP_BONAIRE_6647, "BONAIRE" },
+   { PCI_CHIP_BONAIRE_6649, "BONAIRE" },
++  { PCI_CHIP_BONAIRE_664D, "BONAIRE" },
+   { PCI_CHIP_BONAIRE_6650, "BONAIRE" },
+   { PCI_CHIP_BONAIRE_6651, "BONAIRE" },
+   { PCI_CHIP_BONAIRE_6658, "BONAIRE" },
+diff --git a/src/radeon_pci_chipset_gen.h b/src/radeon_pci_chipset_gen.h
+index 4b4b8e45..ee9ef674 100644
+--- a/src/radeon_pci_chipset_gen.h
++++ b/src/radeon_pci_chipset_gen.h
+@@ -628,6 +628,7 @@ static PciChipsets RADEONPciChipsets[] = {
+  { PCI_CHIP_BONAIRE_6646, PCI_CHIP_BONAIRE_6646, RES_SHARED_VGA },
+  { PCI_CHIP_BONAIRE_6647, PCI_CHIP_BONAIRE_6647, RES_SHARED_VGA },
+  { PCI_CHIP_BONAIRE_6649, PCI_CHIP_BONAIRE_6649, RES_SHARED_VGA },
++ { PCI_CHIP_BONAIRE_664D, PCI_CHIP_BONAIRE_664D, RES_SHARED_VGA },
+  { PCI_CHIP_BONAIRE_6650, PCI_CHIP_BONAIRE_6650, RES_SHARED_VGA },
+  { PCI_CHIP_BONAIRE_6651, PCI_CHIP_BONAIRE_6651, RES_SHARED_VGA },
+  { PCI_CHIP_BONAIRE_6658, PCI_CHIP_BONAIRE_6658, RES_SHARED_VGA },
+diff --git a/src/radeon_pci_device_match_gen.h b/src/radeon_pci_device_match_gen.h
+index 6dfe1e42..41674d1c 100644
+--- a/src/radeon_pci_device_match_gen.h
++++ b/src/radeon_pci_device_match_gen.h
+@@ -628,6 +628,7 @@ static const struct pci_id_match radeon_device_match[] = {
+  ATI_DEVICE_MATCH( PCI_CHIP_BONAIRE_6646, 0 ),
+  ATI_DEVICE_MATCH( PCI_CHIP_BONAIRE_6647, 0 ),
+  ATI_DEVICE_MATCH( PCI_CHIP_BONAIRE_6649, 0 ),
++ ATI_DEVICE_MATCH( PCI_CHIP_BONAIRE_664D, 0 ),
+  ATI_DEVICE_MATCH( PCI_CHIP_BONAIRE_6650, 0 ),
+  ATI_DEVICE_MATCH( PCI_CHIP_BONAIRE_6651, 0 ),
+  ATI_DEVICE_MATCH( PCI_CHIP_BONAIRE_6658, 0 ),
+-- 
+2.30.2
+
