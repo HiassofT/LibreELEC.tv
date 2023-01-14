@@ -1,0 +1,28 @@
+From 748b988d039fd90cc96db7e05e5ed37163f6614c Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Sun, 15 Jan 2023 00:31:35 +0100
+Subject: [PATCH] amd: add PCI ID of Barco MXRT-5600 branded W5100
+
+The Barco MXRT-5600 uses a PCI product ID of 0x664d but is otherwise
+identical to the W5100 with ID 0x6649.
+
+Signed-off-by: Matthias Reichl <hias@horus.com>
+---
+ include/pci_ids/radeonsi_pci_ids.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/pci_ids/radeonsi_pci_ids.h b/include/pci_ids/radeonsi_pci_ids.h
+index 8c4567e8483..3a51a66f621 100644
+--- a/include/pci_ids/radeonsi_pci_ids.h
++++ b/include/pci_ids/radeonsi_pci_ids.h
+@@ -81,6 +81,7 @@ CHIPSET(0x6641, BONAIRE)
+ CHIPSET(0x6646, BONAIRE)
+ CHIPSET(0x6647, BONAIRE)
+ CHIPSET(0x6649, BONAIRE)
++CHIPSET(0x664D, BONAIRE)
+ CHIPSET(0x6650, BONAIRE)
+ CHIPSET(0x6651, BONAIRE)
+ CHIPSET(0x6658, BONAIRE)
+-- 
+2.30.2
+
