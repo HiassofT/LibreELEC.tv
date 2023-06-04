@@ -1,0 +1,41 @@
+From d865c1b5f25dd62e100018f5853c6ed1dbb586d3 Mon Sep 17 00:00:00 2001
+From: Dom Cobley <popcornmix@gmail.com>
+Date: Tue, 25 Apr 2023 18:19:07 +0100
+Subject: [PATCH] AEStreamInfo: Support EAC3 independent + EAC3 (dependent)
+ streams
+
+Fixes: https://github.com/xbmc/xbmc/issues/19182
+---
+ xbmc/cores/AudioEngine/Utils/AEStreamInfo.cpp | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/xbmc/cores/AudioEngine/Utils/AEStreamInfo.cpp b/xbmc/cores/AudioEngine/Utils/AEStreamInfo.cpp
+index 1489a8be7f204..aac2356177b8e 100644
+--- a/xbmc/cores/AudioEngine/Utils/AEStreamInfo.cpp
++++ b/xbmc/cores/AudioEngine/Utils/AEStreamInfo.cpp
+@@ -446,6 +446,25 @@ bool CAEStreamParser::TrySyncAC3(uint8_t *data, unsigned int size, bool resyncin
+     m_fsize = framesize << 1;
+     m_info.m_repeat = MAX_EAC3_BLOCKS / blocks;
+ 
++    /* EAC3 can have a dependent stream too */
++    if (!wantEAC3dependent)
++    {
++      unsigned int fsizeMain = m_fsize;
++      unsigned int reqBytes = fsizeMain + 8;
++      if (size < reqBytes) {
++        /* not enough data to check for E-AC3 dependent frame, request more */
++        m_needBytes = reqBytes;
++        m_fsize = 0;
++        /* no need to resync => return true */
++        return true;
++      }
++      if (TrySyncAC3(data + fsizeMain, size - fsizeMain, resyncing, /*wantEAC3dependent*/ true)) {
++        /* concatenate the main and dependent frames */
++        m_fsize += fsizeMain;
++        return true;
++      }
++    }
++
+     if (m_info.m_type == CAEStreamInfo::STREAM_TYPE_EAC3 && m_hasSync && !resyncing)
+       return true;
+ 
