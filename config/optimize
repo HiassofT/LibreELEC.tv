@@ -43,9 +43,10 @@ CXXFLAGS_OPTIM_SPEED="$CFLAGS_OPTIM_SPEED"
 CFLAGS_OPTIM_SIZE="-Os -fomit-frame-pointer -DNDEBUG"
 CXXFLAGS_OPTIM_SIZE="$CFLAGS_OPTIM_SIZE"
 # debug settings
-CFLAGS_OPTIM_DEBUG="-ggdb -Og"
+SANITIZE="-fsanitize=undefined -fno-sanitize=alignment -fstack-protector-strong -fno-omit-frame-pointer"
+CFLAGS_OPTIM_DEBUG="-ggdb -Og ${SANITIZE}"
 CXXFLAGS_OPTIM_DEBUG="$CFLAGS_OPTIM_DEBUG"
-LDFLAGS_OPTIM_DEBUG="-ggdb"
+LDFLAGS_OPTIM_DEBUG="-ggdb ${SANITIZE}"
 # split debug settings (requires gold)
 CFLAGS_OPTIM_DEBUG_SPLIT="-gdwarf-4 -gsplit-dwarf -Og"
 CXXFLAGS_OPTIM_DEBUG_SPLIT="$CFLAGS_OPTIM_DEBUG_SPLIT"
