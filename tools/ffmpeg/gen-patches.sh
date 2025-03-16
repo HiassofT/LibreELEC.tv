@@ -38,7 +38,7 @@ create_patch() {
       ;;
     rpi)
       REPO="https://github.com/jc-kynesim/rpi-ffmpeg"
-      REFSPEC="test/7.1/main"
+      REFSPEC="dev/7.1.1/rpi_import_1"
       PATCH_CREATE_DIFF="yes"
       ;;
     *)
