@@ -2,7 +2,7 @@
 
 # base ffmpeg version
 FFMPEG_REPO="git://source.ffmpeg.org/ffmpeg.git"
-FFMPEG_VERSION="n7.1"
+FFMPEG_VERSION="n7.1.1"
 
 ALL_FEATURE_SETS="v4l2-drmprime v4l2-request libreelec rpi vf-deinterlace-v4l2m2m"
 
