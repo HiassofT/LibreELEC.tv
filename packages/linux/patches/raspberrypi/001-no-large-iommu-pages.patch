@@ -1,0 +1,20 @@
+diff --git a/drivers/iommu/bcm2712-iommu.c b/drivers/iommu/bcm2712-iommu.c
+index 4e6aa0352f5a..1edffc8e012b 100644
+--- a/drivers/iommu/bcm2712-iommu.c
++++ b/drivers/iommu/bcm2712-iommu.c
+@@ -258,6 +258,7 @@ static int bcm2712_iommu_map(struct iommu_domain *domain, unsigned long iova,
+ 		return -EINVAL;
+ 	}
+ 
++#if 0
+ 	/* large page and write enable flags */
+ 	if (!(align & ((1 << HUGEPAGE_SHIFT) - 1)))
+ 		entry |= FIELD_PREP(MMMU_PTE_PAGESIZE_MASK, 3);
+@@ -265,6 +266,7 @@ static int bcm2712_iommu_map(struct iommu_domain *domain, unsigned long iova,
+ 		entry |= FIELD_PREP(MMMU_PTE_PAGESIZE_MASK, 2);
+ 	else if (!(align &  mmu->bigpage_mask) && mmu->bigpage_mask)
+ 		entry |= FIELD_PREP(MMMU_PTE_PAGESIZE_MASK, 1);
++#endif
+ 	if (prot & IOMMU_WRITE)
+ 		entry |= MMMU_PTE_WRITEABLE;
+ 
