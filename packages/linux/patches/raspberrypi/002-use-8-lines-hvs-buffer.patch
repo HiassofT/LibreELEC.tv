@@ -1,0 +1,13 @@
+diff --git a/drivers/gpu/drm/vc4/vc4_plane.c b/drivers/gpu/drm/vc4/vc4_plane.c
+index 4eb9a63255fb..ffbb93290553 100644
+--- a/drivers/gpu/drm/vc4/vc4_plane.c
++++ b/drivers/gpu/drm/vc4/vc4_plane.c
+@@ -1115,7 +1115,7 @@ static int vc6_plane_allocate_upm(struct drm_plane_state *state)
+ 
+ 	WARN_ON_ONCE(vc4->gen < VC4_GEN_6_C);
+ 
+-	vc4_state->upm_buffer_lines = SCALER6_PTR0_UPM_BUFF_SIZE_2_LINES;
++	vc4_state->upm_buffer_lines = SCALER6_PTR0_UPM_BUFF_SIZE_8_LINES;
+ 
+ 	for (i = 0; i < info->num_planes; i++) {
+ 		struct vc4_upm_refcounts *refcount;
