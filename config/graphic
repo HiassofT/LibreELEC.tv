@@ -58,6 +58,7 @@ get_graphicdrivers() {
   if listcontains "${GRAPHIC_DRIVERS}" "i915"; then
     GALLIUM_DRIVERS+=" i915"
     XORG_DRIVERS+=" intel"
+    LLVM_SUPPORT="yes"
     COMPOSITE_SUPPORT="yes"
     VAAPI_SUPPORT="yes"
   fi

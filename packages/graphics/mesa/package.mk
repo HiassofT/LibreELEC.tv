@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="25.2.6"
-PKG_SHA256="361c97e8afa5fe20141c5362c5b489040751e12861c186a16c621a2fb182fc42"
+PKG_VERSION="25.3.0-rc4"
+PKG_SHA256="e377f77449e892f237dfd9de7e6508dd743ffb8de89a43938a4e357fb28a3b68"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
@@ -20,7 +20,6 @@ fi
 
 PKG_MESON_OPTS_HOST="-Dglvnd=disabled \
                      -Dgallium-drivers=iris \
-                     -Dgallium-vdpau=disabled \
                      -Dplatforms= \
                      -Dglx=disabled \
                      -Dvulkan-drivers= \
@@ -38,7 +37,6 @@ PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dlibunwind=disabled \
                        -Dlmsensors=disabled \
                        -Dbuild-tests=false \
-                       -Ddraw-use-llvm=false \
                        -Dmicrosoft-clc=disabled"
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
@@ -57,6 +55,12 @@ fi
 
 if listcontains "${GRAPHIC_DRIVERS}" "etnaviv"; then
   PKG_DEPENDS_TARGET+=" pycparser:host"
+fi
+
+if listcontains "${GRAPHIC_DRIVERS}" "(i915|r300)"; then
+  PKG_MESON_OPTS_TARGET+=" -Ddraw-use-llvm=true"
+else
+  PKG_MESON_OPTS_TARGET+=" -Ddraw-use-llvm=false"
 fi
 
 if listcontains "${GRAPHIC_DRIVERS}" "(iris|panfrost)"; then
@@ -81,13 +85,6 @@ if [ "${LLVM_SUPPORT}" = "yes" ]; then
   PKG_MESON_OPTS_TARGET+=" -Dllvm=enabled"
 else
   PKG_MESON_OPTS_TARGET+=" -Dllvm=disabled"
-fi
-
-if [ "${VDPAU_SUPPORT}" = "yes" -a "${DISPLAYSERVER}" = "x11" ]; then
-  PKG_DEPENDS_TARGET+=" libvdpau"
-  PKG_MESON_OPTS_TARGET+=" -Dgallium-vdpau=enabled"
-else
-  PKG_MESON_OPTS_TARGET+=" -Dgallium-vdpau=disabled"
 fi
 
 if [ "${VAAPI_SUPPORT}" = "yes" ] && listcontains "${GRAPHIC_DRIVERS}" "(r600|radeonsi)"; then
