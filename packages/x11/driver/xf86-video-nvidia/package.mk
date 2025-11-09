@@ -109,6 +109,18 @@ makeinstall_target() {
     ln -s /var/lib/nvidia-xconfig ${INSTALL}/usr/bin/nvidia-xconfig
     cp nvidia-xconfig ${INSTALL}/usr/bin/nvidia-main-xconfig
 
+  # CUDA
+  mkdir -p ${INSTALL}/usr/lib
+    cp -P libcuda.so.${PKG_VERSION}  ${INSTALL}/usr/lib/
+    ln -sf libcuda.so.${PKG_VERSION} ${INSTALL}/usr/lib/libcuda.so.1
+    ln -sf libcuda.so.1              ${INSTALL}/usr/lib/libcuda.so
+
+  # nvcuvid
+  mkdir -p ${INSTALL}/usr/lib
+    cp -P libnvcuvid.so.${PKG_VERSION}  ${INSTALL}/usr/lib/
+    ln -sf libnvcuvid.so.${PKG_VERSION} ${INSTALL}/usr/lib/libnvcuvid.so.1
+    ln -sf libnvcuvid.so.1              ${INSTALL}/usr/lib/libnvcuvid.so
+
   # App profiles
   mkdir -p ${INSTALL}/usr/share/nvidia
     cp -P nvidia-application-profiles-${PKG_VERSION}-rc ${INSTALL}/usr/share/nvidia
