@@ -79,6 +79,7 @@ get_graphicdrivers() {
   if listcontains "${GRAPHIC_DRIVERS}" "nvidia"; then
     XORG_DRIVERS+=" nvidia"
     VULKAN_DRIVERS_CONFIG+=" nvidia"
+    VAAPI_SUPPORT="yes"
   fi
 
   if listcontains "${GRAPHIC_DRIVERS}" "nvidia-ng"; then
