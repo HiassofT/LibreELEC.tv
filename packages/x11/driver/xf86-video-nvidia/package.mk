@@ -9,7 +9,7 @@ PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://www.nvidia.com/en-us/drivers/unix/"
 PKG_URL="http://us.download.nvidia.com/XFree86/Linux-x86_64/${PKG_VERSION}/NVIDIA-Linux-x86_64-${PKG_VERSION}-no-compat32.run"
-PKG_DEPENDS_TARGET="util-macros xorg-server libvdpau libglvnd"
+PKG_DEPENDS_TARGET="util-macros xorg-server libglvnd"
 PKG_LONGDESC="The Xorg driver for NVIDIA GPUs supporting the GeForce 600 Series & above."
 PKG_TOOLCHAIN="manual"
 
@@ -108,12 +108,6 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     ln -s /var/lib/nvidia-xconfig ${INSTALL}/usr/bin/nvidia-xconfig
     cp nvidia-xconfig ${INSTALL}/usr/bin/nvidia-main-xconfig
-
-  # VDPAU
-  mkdir -p ${INSTALL}/usr/lib/vdpau
-    cp libvdpau_nvidia.so* ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia-main.so.1
-    ln -sf /var/lib/libvdpau_nvidia.so ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so
-    ln -sf /var/lib/libvdpau_nvidia.so.1 ${INSTALL}/usr/lib/vdpau/libvdpau_nvidia.so.1
 
   # App profiles
   mkdir -p ${INSTALL}/usr/share/nvidia
