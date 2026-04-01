@@ -23,5 +23,7 @@ pre_configure_target() {
 }
 
 post_install() {
-  enable_service seatd.service
+  if [ "${DISPLAYSERVER}" = "wl" ]; then
+    enable_service seatd.service
+  fi
 }
