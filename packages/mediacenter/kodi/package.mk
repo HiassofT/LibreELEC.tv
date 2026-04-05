@@ -86,6 +86,13 @@ configure_package() {
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   fi
 
+  if [ "${OPENGLES_SUPPORT}" = "yes" ] && [ "${DISPLAYSERVER}" = "no" ]; then
+    PKG_EXTERNAL_PROGRAM_HELPER="yes"
+    PKG_DEPENDS_TARGET+=" cage"
+  else
+    PKG_EXTERNAL_PROGRAM_HELPER="no"
+  fi
+
   if [ "${KODI_ALSA_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" alsa-lib"
     KODI_ALSA="-DENABLE_ALSA=ON"
@@ -335,6 +342,10 @@ post_makeinstall_target() {
   cp ${PKG_DIR}/scripts/kodi-config ${INSTALL}/usr/lib/kodi
   cp ${PKG_DIR}/scripts/kodi-safe-mode ${INSTALL}/usr/lib/kodi
   cp ${PKG_DIR}/scripts/kodi.sh ${INSTALL}/usr/lib/kodi
+
+  if [ "${PKG_EXTERNAL_PROGRAM_HELPER}" = "yes" ]; then
+    cp "${PKG_DIR}/scripts/run-external-program" "${INSTALL}/usr/lib/kodi"
+  fi
 
   # Configure safe mode triggers - default 5 restarts within 900 seconds/15 minutes
   sed -e "s|@KODI_MAX_RESTARTS@|${KODI_MAX_RESTARTS:-5}|g" \
