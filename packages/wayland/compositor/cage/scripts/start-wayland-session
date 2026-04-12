@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026-present Team LibreELEC (https://libreelec.tv)
+
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+mkdir -p "${XDG_RUNTIME_DIR}"
+chmod 0700 "${XDG_RUNTIME_DIR}"
+
+dbus-run-session -- seatd-launch -- cage -- /usr/lib/libreelec/wayland-session-helper "$@"

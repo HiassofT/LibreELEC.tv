@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026-present Team LibreELEC (https://libreelec.tv)
+
+. /etc/profile
+
+# use kanshi to configure displays, default to clone mode
+KANSHI_CONF="/storage/.config/kanshi/config"
+
+if [ ! -f "${KANSHI_CONF}" ]; then
+  KANSHI_CONF="/etc/xdg/kanshi/clone.conf"
+fi
+
+kanshi -c "${KANSHI_CONF}" &
+KANSHI_PID=$!
+
+"$@"
+
+kill -TERM "${KANSHI_PID}"
