@@ -12,3 +12,8 @@ PKG_LONGDESC="Dynamic display configuration for wayland"
 
 PKG_MESON_OPTS_TARGET="-Dman-pages=disabled \
                        -Dipc=disabled"
+
+post_makeinstall_target() {
+  mkdir -p "${INSTALL}/etc/xdg/kanshi"
+    cp "${PKG_DIR}/config/clone.conf" "${INSTALL}/etc/xdg/kanshi"
+}
