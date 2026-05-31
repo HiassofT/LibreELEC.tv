@@ -32,7 +32,7 @@ kanshi -c "${CONF}" &
 KANSHI_PID=$!
 
 # run WayVNC if enabled
-"${ADDON_DIR}/bin/wayvnc-session-helper"
+WAYVNC_PID=$("${ADDON_DIR}/bin/wayvnc-session-helper")
 
 # continue with the remaining session command
 "$@"
@@ -41,4 +41,6 @@ KANSHI_PID=$!
 kill -TERM "${KANSHI_PID}"
 
 # stop wayvnc when the session ends
-killall -q wayvnc
+if [ -n "${WAYVNC_PID}" ]; then
+  kill -TERM "${WAYVNC_PID}"
+fi

@@ -66,4 +66,5 @@ EOF
 fi
 
 # launch wayvnc with the configured options
-${WAYVNC_CMD} &
+${WAYVNC_CMD} > "${ADDON_HOME}/wayvnc.log" 2>&1 &
+echo "$!"
