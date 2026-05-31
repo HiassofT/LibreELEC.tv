@@ -5,7 +5,7 @@
 PKG_NAME="ffmpeg"
 PKG_VERSION="8.1.1"
 PKG_SHA256="b6863adde98898f42602017462871b5f6333e65aec803fdd7a6308639c52edf3"
-PKG_LICENSE="GPL-3.0-only"
+PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="http://ffmpeg.org/releases/ffmpeg-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib bzip2 openssl speex libxml2"
@@ -137,7 +137,7 @@ fi
 
 configure_target() {
   ./configure --prefix="/usr" \
-              --cpu="${TARGET_CPU}" \
+              --cpu="${TARGET_CPU}${TARGET_CPU_FLAGS}" \
               --arch="${TARGET_ARCH}" \
               --enable-cross-compile \
               --cross-prefix="${TARGET_PREFIX}" \

@@ -2,10 +2,10 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="nvidia"
-PKG_VERSION="580.159.03"
-PKG_SHA256="91a8b1dab05282c9ca6458a362a31587f6902add5198a1ce006c4695b0c75a69"
+PKG_VERSION="580.159.04"
+PKG_SHA256="eae631a3281b17b2cd2ac8fcc9cf370e4327d3b2c36a3b2646ff386501ab03a5"
 PKG_ARCH="x86_64"
-PKG_LICENSE="nonfree"
+PKG_LICENSE="LicenseRef-nonfree"
 PKG_SITE="https://www.nvidia.com/en-us/drivers/unix/"
 PKG_URL="http://us.download.nvidia.com/XFree86/Linux-x86_64/${PKG_VERSION}/NVIDIA-Linux-x86_64-${PKG_VERSION}-no-compat32.run"
 PKG_DEPENDS_TARGET="toolchain util-macros libglvnd"
@@ -128,6 +128,8 @@ makeinstall_target() {
   # NVIDIA Management Library (NVML) / System Management Interface
   mkdir -p ${INSTALL}/usr/bin
     cp -P nvidia-smi ${INSTALL}/usr/bin
+    # fake nvidia-modprobe
+    ln -s /usr/bin/false ${INSTALL}/usr/bin/nvidia-modprobe
 
   mkdir -p ${INSTALL}/usr/lib
     cp -P libnvidia-ml.so.${PKG_VERSION}  ${INSTALL}/usr/lib
