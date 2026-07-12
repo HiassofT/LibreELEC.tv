@@ -1,0 +1,13 @@
+diff --git a/sound/soc/codecs/cs4265.c b/sound/soc/codecs/cs4265.c
+index 3f759c13d6d1..d254aad55867 100644
+--- a/sound/soc/codecs/cs4265.c
++++ b/sound/soc/codecs/cs4265.c
+@@ -122,7 +122,7 @@ static const struct snd_kcontrol_new loopback_ctl =
+ 	SOC_DAPM_SINGLE("Switch", CS4265_SIG_SEL, 1, 1, 0);
+ 
+ static const struct snd_kcontrol_new spdif_switch =
+-	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 0, 0);
++	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+ 
+ static const struct snd_kcontrol_new dac_switch =
+ 	SOC_DAPM_SINGLE("Switch", CS4265_PWRCTL, 1, 1, 0);
