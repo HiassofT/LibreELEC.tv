@@ -20,3 +20,6 @@
 
   # set the addon project
     ADDON_PROJECT="ARMv7"
+
+  # Additional drivers
+    ADDITIONAL_DRIVERS="${ADDITIONAL_DRIVERS} slice-drivers"
