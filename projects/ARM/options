@@ -134,7 +134,7 @@
     OPENGL="no"
 
   # Vulkan implementation to use (vulkan-loader / no)
-    VULKAN="no"
+    VULKAN="vulkan-loader"
 
   # Displayserver to use (wl / no)
     DISPLAYSERVER="no"

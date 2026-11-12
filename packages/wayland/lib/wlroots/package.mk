@@ -20,13 +20,22 @@ configure_package() {
   if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   fi
+  if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+    PKG_DEPENDS_TARGET+=" ${VULKAN}"
+  fi
 }
+
+if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+  RENDERERS="gles2,vulkan"
+else
+  RENDERERS="gles2"
+fi
 
 PKG_MESON_OPTS_TARGET="-Dxcb-errors=disabled \
                        -Dxwayland=disabled \
                        -Dbackends=drm,libinput \
                        -Dexamples=false \
-                       -Drenderers=gles2"
+                       -Drenderers=${RENDERERS}"
 
 pre_configure_target() {
   # wlroots does not build without -Wno flags as all warnings being treated as errors
