@@ -77,6 +77,10 @@ msgctxt "#30115"
 msgid "{0:d} min"
 msgstr ""
 
+msgctxt "#30116"
+msgid "Enable HDR"
+msgstr ""
+
 msgctxt "#30200"
 msgid "VNC"
 msgstr ""

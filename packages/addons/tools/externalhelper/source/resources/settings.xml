@@ -35,6 +35,11 @@
                         <heading>30108</heading>
                     </control>
                 </setting>
+                <setting id="displayhdr" type="boolean" label="30116">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle" />
+                </setting>
                 <setting id="screensavertimeout" type="integer" label="30113" help="30114">
                     <level>0</level>
                     <default>0</default>

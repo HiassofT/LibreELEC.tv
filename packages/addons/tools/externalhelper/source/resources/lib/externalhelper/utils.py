@@ -116,6 +116,8 @@ def get_screensaver_timeout_setting() -> str | None:
     else:
         return str(config * 60)
 
+def get_display_hdr() -> bool:
+    return settings.getBool('displayhdr')
 
 def run_external_program(
     executable: str,
@@ -127,6 +129,7 @@ def run_external_program(
     pulseaudio_channels: int | None = None,
     audiodevice: str | None = None,
     displayconfig: str | None = None,
+    displayhdr: bool | None = None,
 ) -> bool:
     addon = xbmcaddon.Addon(ADDON_ID)
 
@@ -142,6 +145,8 @@ def run_external_program(
         audiodevice = get_audio_device()
     if displayconfig is None:
         displayconfig = get_display_config_setting()
+    if displayhdr is None:
+        displayhdr = get_display_hdr()
 
     screensaver_timeout = get_screensaver_timeout_setting()
 
@@ -165,6 +170,8 @@ def run_external_program(
             environment['KODI_FLATPAK_PULSEAUDIO_CHANNELS'] = str(pulseaudio_channels)
     else:
         environment['KODI_FLATPAK_PULSEAUDIO'] = 'no'
+    if displayhdr is True:
+        environment['KODI_DISPLAY_HDR'] = 'yes'
 
     if env is not None:
         environment.update(env)

@@ -50,7 +50,12 @@ chmod 0700 "${EXTERNALHELPER_RUNTIME_DIR}"
 if [ -d "/storage/.config/labwc" ]; then
   LABWC_CONFIG_DIR="/storage/.config/labwc"
 else
-  LABWC_CONFIG_DIR="${ADDON_DIR}/labwc-config"
+  LABWC_CONFIG_DIR="${EXTERNALHELPER_RUNTIME_DIR}/labwc-config"
+  cp -a "${ADDON_DIR}/labwc-config" "${EXTERNALHELPER_RUNTIME_DIR}"
+  if [ "${KODI_DISPLAY_HDR}" = "yes" ]; then
+    sed -e 's|<hdr>no</hdr>|<hdr>yes</hdr>|' -i "${LABWC_CONFIG_DIR}/rc.xml"
+    export WLR_RENDERER="vulkan"
+  fi
 fi
 
 # Generate session runner script for labwc primary client

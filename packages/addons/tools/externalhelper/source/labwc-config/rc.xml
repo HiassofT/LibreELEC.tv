@@ -5,6 +5,7 @@
     <gap>0</gap>
     <!-- outputs are managed by kanshi -->
     <autoEnableOutputs>no</autoEnableOutputs>
+    <hdr>no</hdr>
   </core>
 
   <theme>
